@@ -1,2 +1,2 @@
 # StarLight
-Cool rockets and stuff
+Cool rocket stuff
