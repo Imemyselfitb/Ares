@@ -20,6 +20,9 @@ public:
 	void SolveCholesky(const Matrix& cholesky);
 
 public:
+	Matrix Transposed() const;
+
+public:
 	inline constexpr float& operator()(uint8_t row, uint8_t col) {
 		return data[(!isTransposed) ? (row * cols + col) : (col * rows + row)];
 	}

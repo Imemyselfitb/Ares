@@ -11,6 +11,15 @@ struct PID_Gain
 	float Kd;
 };
 
+struct PID_State
+{
+	Vector3 Target;
+	Vector3 TargetOffset;
+	Vector3 TargetHeading;
+	Vector2 ServoOrientation;
+	float Thrust;
+};
+
 class PIDSystem
 {
 public:

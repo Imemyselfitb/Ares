@@ -31,6 +31,13 @@ void Matrix::Transpose()
 	isTransposed = !isTransposed;
 }
 
+Matrix Matrix::Transposed() const
+{
+	Matrix copy{ rows, cols, data };
+	copy.Transpose();
+	return copy;
+}
+
 void Matrix::AssignDotProduct(const Matrix& matA, const Matrix& matB)
 {
 	_ASSERT(matA.cols == matB.rows);

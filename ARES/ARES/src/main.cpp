@@ -63,27 +63,34 @@ int main(int argc, char* argv[])
 		float deltaTime = curTime - prevTime;
 		prevTime = curTime;
 
+		//----------------------IMU------------------------//
 		kf.ProcessInputs.Accel1 = Vector3{ KalmanData[i][1], KalmanData[i][2], KalmanData[i][3] };
 		kf.ProcessInputs.Gyro1 = Vector3{ KalmanData[i][4], KalmanData[i][5], KalmanData[i][6] };
 		kf.ProcessInputs.Accel2 = Vector3{ KalmanData[i][7], KalmanData[i][8], KalmanData[i][9] };
 		kf.ProcessInputs.Gyro2 = Vector3{ KalmanData[i][10], KalmanData[i][11], KalmanData[i][12] };
 
-#if BAROMETER_ENABLED
-		kf.m_TimeSinceUpdateBarometer = 0.0f;
-		kf.SensorReadings.Barom = KalmanData[i][13];
-#endif
-
-		kf.m_TimeSinceUpdateGPS = 0.0f;
-		kf.SensorReadings.GPS = Vector3{ KalmanData[i][14], KalmanData[i][15], KalmanData[i][16] };
-		kf.SensorReadings.Mag = Vector3{ KalmanData[i][17], KalmanData[i][18], KalmanData[i][19] };
-		kf.SensorReadings.DiffIMUAccel = Vector3{ KalmanData[i][20], KalmanData[i][21], KalmanData[i][22] };
-		kf.SensorReadings.DiffIMUGyro = Vector3{ KalmanData[i][23], KalmanData[i][24], KalmanData[i][25] };
-
+		kf.SensorReadings.DeltaAccel = kf.ProcessInputs.Accel1 - kf.ProcessInputs.Accel2;
+		kf.SensorReadings.DeltaGyro = kf.ProcessInputs.Gyro1 - kf.ProcessInputs.Gyro2;
 
 		kf.Predict(deltaTime);
-		kf.Update();
+		kf.UpdateDeltaAccel();
+		kf.UpdateDeltaGyro();
+
+		//----------------------Sensors------------------------//
+		kf.SensorReadings.GPS = Vector3{ KalmanData[i][14], KalmanData[i][15], KalmanData[i][16] };
+		kf.UpdateGPS();
+
+		kf.SensorReadings.Mag = Vector3{ KalmanData[i][17], KalmanData[i][18], KalmanData[i][19] };
+		kf.UpdateMag();
+
+#if BAROMETER_ENABLED
+		kf.SensorReadings.Barom = KalmanData[i][13];
+		kf.UpdateBarom();
+#endif
 
 		//std::cout << "Position: " << kf.CurrentState.Position << std::endl;
+		//std::cout << "Velocity: " << kf.CurrentState.Velocity << std::endl;
+		//std::cout << "Nose Orientation: " << kf.CurrentState.Orientation.rotateVector(Vector3(0.0, 1.0, 0.0)) << std::endl;
 	}
 
 	auto end = std::chrono::high_resolution_clock::now();

@@ -1,46 +1,47 @@
 #include "KalmanFilter.h"
 
-const float ProcessNoise[KalmanFilter::NUM_STATES] = {
-	0.2f, 0.2f, 0.2f, // Position
-	0.2f, 0.2f, 0.2f, // Velocity
-	0.2f, 0.2f, 0.2f, // Orientation
-	0.2f, 0.2f, 0.2f, // Bias Mean Accel
-	0.2f, 0.2f, 0.2f, // Bias Mean Gyro
-	0.2f, 0.2f, 0.2f, // Bias Delta Accel
-	0.2f, 0.2f, 0.2f, // Bias Delta Gyro
-};
-
-const float SensorNoise[KalmanFilter::NUM_SENSORS] = {
-	1.0f, 1.0f, 1.0f, // GPS Position
-	0.01f, 0.01f, 0.01f, // Magnetometer
-	0.5f, 0.5f, 0.5f, // Accel IMU Difference
-	0.5f, 0.5f, 0.5f, // Gyro IMU Difference
-
-#if BAROMETER_ENABLED
-	10.0f // Barometer
-#endif
-};
-
 KalmanFilter::KalmanFilter()
-	: m_ProcessNoise(Matrix::Diagonal(NUM_STATES, ProcessNoise)),
-	m_SensorNoise(Matrix::Diagonal(NUM_SENSORS, SensorNoise))
 {
-	// GPS Position
-	m_JacobianUpdate(0, 0) = 1.0f;
-	m_JacobianUpdate(1, 1) = 1.0f;
-	m_JacobianUpdate(2, 2) = 1.0f;
-	// Accel IMU Difference
-	m_JacobianUpdate(6, 15) = -1.0f;
-	m_JacobianUpdate(7, 16) = -1.0f;
-	m_JacobianUpdate(8, 17) = -1.0f;
-	// Gyro IMU Difference
-	m_JacobianUpdate(9, 18) = -1.0f;
-	m_JacobianUpdate(10, 19) = -1.0f;
-	m_JacobianUpdate(11, 20) = -1.0f;
+	initSensorNoise();
+	initUpdateJacobians();
+}
 
-#if BAROMETER_ENABLED
-	m_JacobianUpdate(12, 1) = 1.0f;
-#endif
+// Values are modifiable
+void KalmanFilter::initSensorNoise()
+{
+	SensorNoiseBarom = 1.0f;
+	SensorNoiseGPS = Vector3{ 1.0f, 1.0f, 1.0f };
+	SensorNoiseMag = Vector3{ 0.01f, 0.01f, 0.01f };
+	SensorNoiseDeltaGyro = Vector3{ 0.5f, 0.5f, 0.5f };
+	SensorNoiseDeltaAccel = Vector3{ 0.5f, 0.5f, 0.5f };
+
+	const float processNoise[NUM_STATES] = {
+		0.2f, 0.2f, 0.2f, // Position
+		0.2f, 0.2f, 0.2f, // Velocity
+		0.2f, 0.2f, 0.2f, // Orientation
+		0.2f, 0.2f, 0.2f, // Bias Mean Accel
+		0.2f, 0.2f, 0.2f, // Bias Mean Gyro
+		0.2f, 0.2f, 0.2f, // Bias Delta Accel
+		0.2f, 0.2f, 0.2f, // Bias Delta Gyro
+	};
+
+	for (uint8_t i = 0; i < NUM_STATES; i++)
+		m_ProcessNoise.data[i * NUM_STATES + i] = processNoise[i];
+}
+
+void KalmanFilter::initUpdateJacobians()
+{
+	m_JacobianUpdateGPS(0, 0) = 1.0f;
+	m_JacobianUpdateGPS(1, 1) = 1.0f;
+	m_JacobianUpdateGPS(2, 2) = 1.0f;
+
+	m_JacobianUpdateDeltaAccel(0, 15) = -1.0f;
+	m_JacobianUpdateDeltaAccel(1, 16) = -1.0f;
+	m_JacobianUpdateDeltaAccel(2, 17) = -1.0f;
+
+	m_JacobianUpdateDeltaGyro(0, 18) = -1.0f;
+	m_JacobianUpdateDeltaGyro(1, 19) = -1.0f;
+	m_JacobianUpdateDeltaGyro(2, 20) = -1.0f;
 }
 
 void KalmanFilter::Predict(float delta)
@@ -48,14 +49,6 @@ void KalmanFilter::Predict(float delta)
 	predictState(delta);
 	predictJacobian(delta);
 	predictCovariance(delta);
-}
-
-void KalmanFilter::Update()
-{
-	updateSensorDifferences();
-	updateJacobian();
-	updateCovariance();
-	updateState();
 }
 
 void KalmanFilter::predictState(float delta)
@@ -166,62 +159,118 @@ void KalmanFilter::updateState()
 	CurrentState.BiasDeltaGyro.z += m_StateInnovation(20, 0);
 }
 
-void KalmanFilter::updateSensorDifferences()
+void KalmanFilter::UpdateBarom()
 {
-	Vector3 predictedGPS = CurrentState.Position + CurrentState.Velocity * m_TimeSinceUpdateGPS;
+	float predictedBarom = CurrentState.Position.y;
+	float diff = SensorReadings.Barom - predictedBarom;
+	
+	// Since only one reading is provided, the matrices can simplified and calculated manually
+	float scale = 1.0f / (m_ErrorCovariance.data[NUM_STATES + 1] + SensorNoiseBarom);
+	for (uint8_t i = 0; i < NUM_STATES; i++)
+	{
+		float kalman = m_ErrorCovariance.data[i * NUM_STATES + 1] * scale;
+		m_StateInnovation.data[i] = kalman; // StateInnovation currently is kalman gain (until multiplied by diff)
+		m_CovarianceCorrectionBarom.data[i * NUM_STATES + 1] = -kalman;
+	}
+	
+	m_CovarianceCorrectionBarom.data[NUM_STATES + 1] += 1.0;
+
+	// stateCovariance = correction.dot(stateCovariance).dot(correction.transposed())
+	m_ScratchMatrix1.AssignDotProduct(m_CovarianceCorrectionBarom, m_ErrorCovariance);
+	m_ErrorCovariance.AssignDotProduct(m_ScratchMatrix1, m_CovarianceCorrectionBarom.Transposed());
+
+	// stateCovariance = stateCovariance.add(kalmanGain.dot(sensorNoise).dot(kalmanGain.transposed()))
+	m_ScratchMatrix1.AssignDotProduct(m_StateInnovation, m_StateInnovation.Transposed());
+	m_ScratchMatrix1 *= SensorNoiseBarom;
+	m_ErrorCovariance += m_ScratchMatrix1;
+
+	m_StateInnovation *= diff;
+	updateState();
+}
+
+void KalmanFilter::UpdateGPS()
+{
+	Vector3 predictedGPS = CurrentState.Position;
 	m_SensorReadingsDif(0, 0) = SensorReadings.GPS.x - predictedGPS.x;
 	m_SensorReadingsDif(1, 0) = SensorReadings.GPS.y - predictedGPS.y;
 	m_SensorReadingsDif(2, 0) = SensorReadings.GPS.z - predictedGPS.z;
 
-	Vector3 predictedMag = CurrentState.Orientation.conjugate().rotateVector(m_MagFieldWorld);
-	m_SensorReadingsDif(3, 0) = SensorReadings.Mag.x - predictedMag.x;
-	m_SensorReadingsDif(4, 0) = SensorReadings.Mag.y - predictedMag.y;
-	m_SensorReadingsDif(5, 0) = SensorReadings.Mag.z - predictedMag.z;
-
-	Vector3 predictedDiffIMUAccel = ProcessInputs.Accel1 - ProcessInputs.Accel2;
-	m_SensorReadingsDif(6, 0) = SensorReadings.DiffIMUAccel.x - predictedDiffIMUAccel.x;
-	m_SensorReadingsDif(7, 0) = SensorReadings.DiffIMUAccel.y - predictedDiffIMUAccel.y;
-	m_SensorReadingsDif(8, 0) = SensorReadings.DiffIMUAccel.z - predictedDiffIMUAccel.z;
-
-	Vector3 predictedDiffIMUGyro = ProcessInputs.Gyro1 - ProcessInputs.Gyro2;
-	m_SensorReadingsDif(9, 0) = SensorReadings.DiffIMUGyro.x - predictedDiffIMUGyro.x;
-	m_SensorReadingsDif(10, 0) = SensorReadings.DiffIMUGyro.y - predictedDiffIMUGyro.y;
-	m_SensorReadingsDif(11, 0) = SensorReadings.DiffIMUGyro.z - predictedDiffIMUGyro.z;
-
-#if BAROMETER_ENABLED
-	float predictedBarometer = CurrentState.Position.z + CurrentState.Velocity.z * m_TimeSinceUpdateGPS;
-	m_SensorReadingsDif(12, 0) = SensorReadings.Barom - predictedBarometer;
-#endif
+	float sensorNoiseData[9] = {
+		SensorNoiseGPS.x, 0.0, 0.0,
+		0.0, SensorNoiseGPS.y, 0.0,
+		0.0, 0.0, SensorNoiseGPS.z
+	};
+	Matrix sensorNoise{ 3, 3, sensorNoiseData };
+	updateCovariance(m_JacobianUpdateGPS, sensorNoise);
+	updateState();
 }
 
-void KalmanFilter::updateJacobian()
+void KalmanFilter::UpdateMag()
 {
-	// GPS Position
-	m_JacobianUpdate(0, 3) = m_TimeSinceUpdateGPS;
-	m_JacobianUpdate(1, 4) = m_TimeSinceUpdateGPS;
-	m_JacobianUpdate(2, 5) = m_TimeSinceUpdateGPS;
-	// Magnetometer
-	Vector3 north = CurrentState.Orientation.conjugate().rotateVector(m_MagFieldWorld);
-	m_JacobianUpdate(3, 7) = -north.z;
-	m_JacobianUpdate(3, 8) = north.y;
-	m_JacobianUpdate(4, 6) = north.z;
-	m_JacobianUpdate(4, 8) = -north.x;
-	m_JacobianUpdate(5, 6) = -north.y;
-	m_JacobianUpdate(5, 7) = north.x;
+	Vector3 predictedMag = CurrentState.Orientation.conjugate().rotateVector(m_MagFieldWorld);
+	m_SensorReadingsDif(0, 0) = SensorReadings.Mag.x - predictedMag.x;
+	m_SensorReadingsDif(1, 0) = SensorReadings.Mag.y - predictedMag.y;
+	m_SensorReadingsDif(2, 0) = SensorReadings.Mag.z - predictedMag.z;
 
-#if BAROMETER_ENABLED
-	m_JacobianUpdate(12, 4) = m_TimeSinceUpdateGPS;
-#endif
+	m_JacobianUpdateMag(0, 7) = -predictedMag.z;
+	m_JacobianUpdateMag(0, 8) = predictedMag.y;
+	m_JacobianUpdateMag(1, 6) = predictedMag.z;
+	m_JacobianUpdateMag(1, 8) = -predictedMag.x;
+	m_JacobianUpdateMag(2, 6) = -predictedMag.y;
+	m_JacobianUpdateMag(2, 7) = predictedMag.x;
+
+	float sensorNoiseData[9] = {
+		SensorNoiseMag.x, 0.0, 0.0,
+		0.0, SensorNoiseMag.y, 0.0,
+		0.0, 0.0, SensorNoiseMag.z
+	};
+	Matrix sensorNoise{ 3, 3, sensorNoiseData };
+	updateCovariance(m_JacobianUpdateMag, sensorNoise);
+	updateState();
 }
 
-void KalmanFilter::updateCovariance()
+void KalmanFilter::UpdateDeltaGyro()
+{
+	Vector3 predictedDeltaGyro = CurrentState.BiasDeltaGyro * -1.0f;
+	m_SensorReadingsDif(0, 0) = SensorReadings.DeltaGyro.x - predictedDeltaGyro.x;
+	m_SensorReadingsDif(1, 0) = SensorReadings.DeltaGyro.y - predictedDeltaGyro.y;
+	m_SensorReadingsDif(2, 0) = SensorReadings.DeltaGyro.z - predictedDeltaGyro.z;
+
+	float sensorNoiseData[9] = {
+		SensorNoiseDeltaGyro.x, 0.0, 0.0,
+		0.0, SensorNoiseDeltaGyro.y, 0.0,
+		0.0, 0.0, SensorNoiseDeltaGyro.z
+	};
+	Matrix sensorNoise{ 3, 3, sensorNoiseData };
+	updateCovariance(m_JacobianUpdateDeltaGyro, sensorNoise);
+	updateState();
+}
+
+void KalmanFilter::UpdateDeltaAccel()
+{
+	Vector3 predictedDeltaAccel = CurrentState.BiasDeltaAccel * -1.0f;
+	m_SensorReadingsDif(0, 0) = SensorReadings.DeltaAccel.x - predictedDeltaAccel.x;
+	m_SensorReadingsDif(1, 0) = SensorReadings.DeltaAccel.y - predictedDeltaAccel.y;
+	m_SensorReadingsDif(2, 0) = SensorReadings.DeltaAccel.z - predictedDeltaAccel.z;
+
+	float sensorNoiseData[9] = {
+		SensorNoiseDeltaAccel.x, 0.0, 0.0,
+		0.0, SensorNoiseDeltaAccel.y, 0.0,
+		0.0, 0.0, SensorNoiseDeltaAccel.z
+	};
+	Matrix sensorNoise{ 3, 3, sensorNoiseData };
+	updateCovariance(m_JacobianUpdateDeltaAccel, sensorNoise);
+	updateState();
+}
+
+void KalmanFilter::updateCovariance(Matrix& updateJacobian, Matrix& sensorNoise)
 {
 	// measurementCovariance = jacobian.dot(stateCovariance.dot(jacobianTransp)).add(sensorNoise)
-	m_KalmanGain.AssignDotProduct(m_JacobianUpdate, m_ErrorCovariance); // [not currently the kalman gain]
-	m_JacobianUpdate.Transpose(); // jacobian -> jacobianTransp
-	m_MeasurementCovariance.AssignDotProduct(m_KalmanGain, m_JacobianUpdate);
-	m_JacobianUpdate.Transpose(); // jacobianTransp -> jacobian
-	m_MeasurementCovariance += m_SensorNoise;
+	m_KalmanGain.AssignDotProduct(updateJacobian, m_ErrorCovariance); // [not currently the kalman gain]
+	updateJacobian.Transpose(); // jacobian -> jacobianTransp
+	m_MeasurementCovariance.AssignDotProduct(m_KalmanGain, updateJacobian);
+	updateJacobian.Transpose(); // jacobianTransp -> jacobian
+	m_MeasurementCovariance += sensorNoise;
 
 	// kalmanGain = stateCovariance.dot(jacobianTransp).dot(measurementCovariance.inv())
 	// [NOW USES CHOLESKY SOLVING!!!!]: kalmanGain = jacobian.dot(stateCovariance).solve(measurementCovariance.cholesky()).transposed()
@@ -233,7 +282,7 @@ void KalmanFilter::updateCovariance()
 	m_StateInnovation.AssignDotProduct(m_KalmanGain, m_SensorReadingsDif);
 
 	// correction = identityState.add(kalmanGain.dot(jacobian).scale(-1))
-	m_CovarianceCorrection.AssignDotProduct(m_KalmanGain, m_JacobianUpdate);
+	m_CovarianceCorrection.AssignDotProduct(m_KalmanGain, updateJacobian);
 	m_CovarianceCorrection *= -1.0f;
 	for (uint8_t i = 0; i < m_CovarianceCorrection.rows; ++i)
 		m_CovarianceCorrection.data[i * m_CovarianceCorrection.cols + i] += 1.0f;
@@ -244,7 +293,7 @@ void KalmanFilter::updateCovariance()
 	m_ErrorCovariance.AssignDotProduct(m_ScratchMatrix1, m_CovarianceCorrection);
 
 	// stateCovariance = stateCovariance.add(kalmanGain.dot(sensorNoise).dot(kalmanGain.transposed()))
-	m_ScratchMatrix2.AssignDotProduct(m_KalmanGain, m_SensorNoise);
+	m_ScratchMatrix2.AssignDotProduct(m_KalmanGain, sensorNoise);
 	m_KalmanGain.Transpose();
 	m_ScratchMatrix1.AssignDotProduct(m_ScratchMatrix2, m_KalmanGain);
 	m_ErrorCovariance += m_ScratchMatrix1;
