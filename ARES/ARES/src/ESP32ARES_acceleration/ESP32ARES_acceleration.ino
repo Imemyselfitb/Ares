@@ -1,4 +1,5 @@
 #include "KalmanFilter.h"
+#include "Sensors.h"
 
 // Onboard WS2812 RGB Parameter 
 #define RGB_LED_PIN 38  // WS2812 LED Pin for N8R8
@@ -23,7 +24,8 @@ void setup()
     neopixelWrite(RGB_LED_PIN, 128, 0, 0); 
 
     Serial.begin(115200);
-    while(!Serial) delay(10);
+    while(!Serial)
+        delay(10);
   
     Serial.println(F(" --- DIRECT AVIONICS MULTI-SENSOR ENGINE --- "));
   
@@ -39,7 +41,7 @@ void setup()
     }
 
     Serial.print(F("Booting TDK ICM-45686... "));
-    int statusCodeTDK = IMU::BootTDK();
+    int statusCodeTDK = IMUs::BootTDK();
     if (statusCodeTDK == 0)
         Serial.println(F("SUCCESS: TDK ICM-45686 configured to [32G / 2000DPS]"));
     else
@@ -54,6 +56,8 @@ void setup()
 
     lastMicros = micros(); // Establish system reference frame clock
 }
+
+float tdkQW = 1.0f, tdkQX = 0.0f, tdkQY = 0.0f, tdkQZ = 0.0f;
 
 void loop()
 {
@@ -72,6 +76,24 @@ void loop()
 
     KF.UpdateDeltaAccel();
     KF.UpdateDeltaGyro();
+
+    // THE [OLD] QUATERNION STUFF
+    float tdkRadX = KF.ProcessInputs.Gyro2.x;
+    float tdkRadY = KF.ProcessInputs.Gyro2.y;
+    float tdkRadZ = KF.ProcessInputs.Gyro2.z;
+
+    float dT_dQW = 0.5f * (-tdkQX * tdkRadX - tdkQY * tdkRadY - tdkQZ * tdkRadZ) * dt;
+    float dT_dQX = 0.5f * ( tdkQW * tdkRadX + tdkQY * tdkRadZ - tdkQZ * tdkRadY) * dt;
+    float dT_dQY = 0.5f * ( tdkQW * tdkRadY - tdkQX * tdkRadZ + tdkQZ * tdkRadX) * dt;
+    float dT_dQZ = 0.5f * ( tdkQW * tdkRadZ + tdkQX * tdkRadY - tdkQY * tdkRadX) * dt;
+
+    tdkQW += dT_dQW; tdkQX += dT_dQX; tdkQY += dT_dQY; tdkQZ += dT_dQZ;
+    float tdkNorm = sqrt(tdkQW * tdkQW + tdkQX * tdkQX + tdkQY * tdkQY + tdkQZ * tdkQZ);
+    if (tdkNorm > 0.0f) { tdkQW /= tdkNorm; tdkQX /= tdkNorm; tdkQY /= tdkNorm; tdkQZ /= tdkNorm; }
+
+    float tdkRoll  = atan2(2.0f * (tdkQW * tdkQX + tdkQY * tdkQZ), 1.0f - 2.0f * (tdkQX * tdkQX + tdkQY * tdkQY)) * (180.0f / PI);
+    float tdkPitch = asin(fmax(-1.0f, fmin(1.0f, 2.0f * (tdkQW * tdkQY - tdkQZ * tdkQX)))) * (180.0f / PI);
+    float tdkYaw   = atan2(2.0f * (tdkQW * tdkQZ + tdkQX * tdkQY), 1.0f - 2.0f * (tdkQY * tdkQY + tdkQZ * tdkQZ)) * (180.0f / PI);
 
     // TELEMETRY OUTPUT ENGINE (Serial Stream)
 
@@ -101,9 +123,9 @@ void loop()
         Serial.print(tdkYaw, 1);
 
         Serial.print(F("  |  TDK [m/s² X,Y,Z]: "));
-        Serial.print(tdkMS2_X, 3); Serial.print(F(", "));
-        Serial.print(tdkMS2_Y, 3); Serial.print(F(", "));
-        Serial.print(tdkMS2_Z, 3);
+        Serial.print(KF.ProcessInputs.Accel2.x, 3); Serial.print(F(", "));
+        Serial.print(KF.ProcessInputs.Accel2.y, 3); Serial.print(F(", "));
+        Serial.print(KF.ProcessInputs.Accel2.z, 3);
   
         Serial.println();
     }

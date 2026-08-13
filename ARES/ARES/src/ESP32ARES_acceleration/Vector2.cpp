@@ -102,10 +102,3 @@ void Vector2::operator/=(float scalar)
 	x /= scalar;
 	y /= scalar;
 }
-
-
-std::ostream& operator<<(std::ostream& os, const Vector2& vec)
-{
-	os << "Vector2( x:" << vec.x << ", y:" << vec.y << " )";
-	return os;
-}

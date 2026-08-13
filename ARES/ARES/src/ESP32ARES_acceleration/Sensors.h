@@ -5,16 +5,16 @@
 
 #include "Vector3.h"
 
-struct IMUs
+class IMUs
 {
-	int BootBMI();
-	int BootTDK();
+	static int BootBMI();
+	static int BootTDK();
 
-	void GetReadingsBMI(Vector3& outAccel, Vector3& outGyro);
-	void GetReadingsTDK(Vector3& outAccel, Vector3& outGyro);
+	static void GetReadingsBMI(Vector3& outAccel, Vector3& outGyro);
+	static void GetReadingsTDK(Vector3& outAccel, Vector3& outGyro);
 
 private:
-	void writeReg(uint8_t dev, uint8_t reg, uint8_t val);
+	static void writeReg(uint8_t dev, uint8_t reg, uint8_t val);
 
 private:
 	// Instantiate official TDK constructor interface targeting standard I2C bus
