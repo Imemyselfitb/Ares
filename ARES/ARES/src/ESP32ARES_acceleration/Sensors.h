@@ -18,5 +18,5 @@ private:
 
 private:
 	// Instantiate official TDK constructor interface targeting standard I2C bus
-	ICM456xx m_ICM{ Wire, 1 };
+	static ICM456xx s_ICM{ Wire, 1 };
 };

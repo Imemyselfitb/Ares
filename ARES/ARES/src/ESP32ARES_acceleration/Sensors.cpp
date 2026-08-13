@@ -43,12 +43,12 @@ int IMUs::BootBMI()
 
 int IMUs::BootTDK()
 {
-    int icmStatus = m_ICM.begin();
+    int icmStatus = s_ICM.begin();
     if (icmStatus != 0)
         return icmStatus;
 
-    m_ICM.startAccel(100, 32);   // Start at 100Hz ODR and +/- 32G range
-    m_ICM.startGyro(100, 2000);  // Wake the integrated TDK gyro engine at 100Hz and +/- 2000 DPS
+    s_ICM.startAccel(100, 32);   // Start at 100Hz ODR and +/- 32G range
+    s_ICM.startGyro(100, 2000);  // Wake the integrated TDK gyro engine at 100Hz and +/- 2000 DPS
     return 0;
 }
 
@@ -92,7 +92,7 @@ void IMUs::GetReadingsBMI(Vector3& outAccel, Vector3& outGyro)
 void IMUs::GetReadingsTDK(Vector3& outAccel, Vector3& outGyro)
 {
     inv_imu_sensor_data_t icmData;
-    m_ICM.getDataFromRegisters(icmData);
+    s_ICM.getDataFromRegisters(icmData);
 
     outAccel.x = ((float)icmData.accel_data[0] * 32.0f / 32768.0f) * 9.80665f;
     outAccel.y = ((float)icmData.accel_data[1] * 32.0f / 32768.0f) * 9.80665f;
