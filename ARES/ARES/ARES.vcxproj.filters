@@ -1,46 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Math">
-      <UniqueIdentifier>{AFF4887C-9B2B-8A0D-4418-7010302E060F}</UniqueIdentifier>
+    <Filter Include="ESP32ARES_acceleration">
+      <UniqueIdentifier>{26DB42A5-12D5-6BF7-FB41-0208E7DAD163}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\KalmanTestData.h" />
-    <ClInclude Include="src\Math\KalmanFilter.h">
-      <Filter>Math</Filter>
+    <ClInclude Include="src\ESP32ARES_acceleration\KalmanFilter.h">
+      <Filter>ESP32ARES_acceleration</Filter>
     </ClInclude>
-    <ClInclude Include="src\Math\Matrix.h">
-      <Filter>Math</Filter>
+    <ClInclude Include="src\ESP32ARES_acceleration\Matrix.h">
+      <Filter>ESP32ARES_acceleration</Filter>
     </ClInclude>
-    <ClInclude Include="src\Math\Quaternion.h">
-      <Filter>Math</Filter>
+    <ClInclude Include="src\ESP32ARES_acceleration\PID.h">
+      <Filter>ESP32ARES_acceleration</Filter>
     </ClInclude>
-    <ClInclude Include="src\Math\Vector2.h">
-      <Filter>Math</Filter>
+    <ClInclude Include="src\ESP32ARES_acceleration\Quaternion.h">
+      <Filter>ESP32ARES_acceleration</Filter>
     </ClInclude>
-    <ClInclude Include="src\Math\Vector3.h">
-      <Filter>Math</Filter>
+    <ClInclude Include="src\ESP32ARES_acceleration\Vector2.h">
+      <Filter>ESP32ARES_acceleration</Filter>
     </ClInclude>
-    <ClInclude Include="src\PID.h" />
+    <ClInclude Include="src\ESP32ARES_acceleration\Vector3.h">
+      <Filter>ESP32ARES_acceleration</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SensorData.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Math\KalmanFilter.cpp">
-      <Filter>Math</Filter>
+    <ClCompile Include="src\ESP32ARES_acceleration\KalmanFilter.cpp">
+      <Filter>ESP32ARES_acceleration</Filter>
     </ClCompile>
-    <ClCompile Include="src\Math\Matrix.cpp">
-      <Filter>Math</Filter>
+    <ClCompile Include="src\ESP32ARES_acceleration\Matrix.cpp">
+      <Filter>ESP32ARES_acceleration</Filter>
     </ClCompile>
-    <ClCompile Include="src\Math\Quaternion.cpp">
-      <Filter>Math</Filter>
+    <ClCompile Include="src\ESP32ARES_acceleration\PID.cpp">
+      <Filter>ESP32ARES_acceleration</Filter>
     </ClCompile>
-    <ClCompile Include="src\Math\Vector2.cpp">
-      <Filter>Math</Filter>
+    <ClCompile Include="src\ESP32ARES_acceleration\Quaternion.cpp">
+      <Filter>ESP32ARES_acceleration</Filter>
     </ClCompile>
-    <ClCompile Include="src\Math\Vector3.cpp">
-      <Filter>Math</Filter>
+    <ClCompile Include="src\ESP32ARES_acceleration\Setup.cpp">
+      <Filter>ESP32ARES_acceleration</Filter>
     </ClCompile>
-    <ClCompile Include="src\PID.cpp" />
-    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\ESP32ARES_acceleration\Vector2.cpp">
+      <Filter>ESP32ARES_acceleration</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ESP32ARES_acceleration\Vector3.cpp">
+      <Filter>ESP32ARES_acceleration</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

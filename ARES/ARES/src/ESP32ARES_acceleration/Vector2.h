@@ -1,6 +1,9 @@
 #pragma once
 
-#include <iostream>
+#include <stdint.h>
+
+extern void OUTPUT_TEXT_ARES(const char* txt);
+extern void OUTPUT_FLOAT_ARES(float num, uint8_t dp);
 
 struct Vector2
 {
@@ -24,6 +27,8 @@ public:
 	Vector2 normalised() const;
 
 	float dot(const Vector2& other) const;
+
+	void Print() const;
 
 public:
 	void normalise();

@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Vector3.h"
-#include <iostream>
+
+extern void OUTPUT_TEXT_ARES(const char* txt);
+extern void OUTPUT_FLOAT_ARES(float num, uint8_t dp);
 
 struct Quaternion
 {
@@ -33,6 +35,8 @@ public:
 	Vector3 rotateVector(const Vector3& point) const;
 
 	void toRotationMatrix(float* matrix) const;
+
+	void Print() const;
 
 public:
 	Quaternion operator+(const Quaternion& other) const;

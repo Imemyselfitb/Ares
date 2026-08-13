@@ -1,6 +1,9 @@
 #pragma once
 
-#include <iostream>
+#include <stdint.h>
+
+extern void OUTPUT_TEXT_ARES(const char* txt);
+extern void OUTPUT_FLOAT_ARES(float num, uint8_t dp);
 
 class Matrix
 {
@@ -21,6 +24,7 @@ public:
 
 public:
 	Matrix Transposed() const;
+	void Print() const;
 
 public:
 	inline constexpr float& operator()(uint8_t row, uint8_t col) {
@@ -43,5 +47,3 @@ public:
 private:
 	bool isTransposed = false;
 };
-
-std::ostream& operator<<(std::ostream& os, const Matrix& mat);

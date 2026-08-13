@@ -1,4 +1,5 @@
 #include "Matrix.h"
+
 #include <cstring>
 #include <cmath>
 
@@ -173,20 +174,19 @@ void Matrix::SolveCholesky(const Matrix& cholesky)
 	}
 }
 
-std::ostream& operator<<(std::ostream& os, const Matrix& mat)
+void Matrix::Print() const
 {
-	os << "[\n\t[";
-	for(uint8_t i = 0; i < mat.rows; i++)
+	OUTPUT_TEXT_ARES("[\n\t[");
+	for (uint8_t i = 0; i < rows; i++)
 	{
-		for (uint8_t j = 0; j < mat.cols; j++)
+		for (uint8_t j = 0; j < cols; j++)
 		{
-			os << mat(i, j);
-			if (j < mat.cols - 1)
-				os << ",\t";
+			OUTPUT_FLOAT_ARES(operator()(i, j), 3);
+			if (j < cols - 1)
+				OUTPUT_TEXT_ARES(",\t");
 		}
-		if (i < mat.rows - 1)
-			os << "],\n\t[";
+		if (i < rows - 1)
+			OUTPUT_TEXT_ARES("],\n\t[");
 	}
-	os << "]\n]";
-	return os;
+	OUTPUT_TEXT_ARES("]\n]");
 }

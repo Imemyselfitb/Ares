@@ -1,4 +1,5 @@
 #include "Vector2.h"
+
 #include <cmath>
 
 /****************************** CONST FUNCTIONS ******************************/
@@ -22,6 +23,16 @@ Vector2 Vector2::normalised() const
 float Vector2::dot(const Vector2& other) const
 {
 	return x * other.x + y * other.y;
+}
+
+
+void Vector2::Print() const
+{
+	OUTPUT_TEXT_ARES("Vector2 ( x:");
+	OUTPUT_FLOAT_ARES(x, 3);
+	OUTPUT_TEXT_ARES(", y:");
+	OUTPUT_FLOAT_ARES(y, 3);
+	OUTPUT_TEXT_ARES(")");
 }
 
 /**************************** NON-CONST FUNCTIONS ****************************/

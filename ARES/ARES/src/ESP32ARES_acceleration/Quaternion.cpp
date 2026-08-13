@@ -75,6 +75,20 @@ void Quaternion::toRotationMatrix(float* matrix) const
 	matrix[8] = 1.0f - 2.0f * (x * x + y * y);
 }
 
+
+void Quaternion::Print() const
+{
+	OUTPUT_TEXT_ARES("Quaternion ( w:");
+	OUTPUT_FLOAT_ARES(w, 3);
+	OUTPUT_TEXT_ARES(", x:");
+	OUTPUT_FLOAT_ARES(x, 3);
+	OUTPUT_TEXT_ARES(", y:");
+	OUTPUT_FLOAT_ARES(y, 3);
+	OUTPUT_TEXT_ARES(", z:");
+	OUTPUT_FLOAT_ARES(z, 3);
+	OUTPUT_TEXT_ARES(")");
+}
+
 /****************************** CONST OPERATORS ******************************/
 Quaternion Quaternion::operator+(const Quaternion& other) const
 {
@@ -131,11 +145,4 @@ void Quaternion::operator/=(float scalar)
 	x /= scalar;
 	y /= scalar;
 	z /= scalar;
-}
-
-
-std::ostream& operator<<(std::ostream& os, const Quaternion& quat)
-{
-	os << "Quaternion( w:" << quat.w << ", x:" << quat.x << ", y:" << quat.y << ", z:" << quat.z << " )";
-	return os;
 }

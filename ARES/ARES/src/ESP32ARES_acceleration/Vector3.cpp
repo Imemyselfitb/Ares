@@ -1,4 +1,5 @@
 #include "Vector3.h"
+
 #include <cmath>
 
 /****************************** CONST FUNCTIONS ******************************/
@@ -30,6 +31,18 @@ Vector3 Vector3::cross(const Vector3& other) const
 		z*other.x - x*other.z,
 		x*other.y - y*other.x
 	};
+}
+
+
+void Vector3::Print() const
+{
+	OUTPUT_TEXT_ARES("Vector3 ( x:");
+	OUTPUT_FLOAT_ARES(x, 3);
+	OUTPUT_TEXT_ARES(", y:");
+	OUTPUT_FLOAT_ARES(y, 3);
+	OUTPUT_TEXT_ARES(", z:");
+	OUTPUT_FLOAT_ARES(z, 3);
+	OUTPUT_TEXT_ARES(")");
 }
 
 /**************************** NON-CONST FUNCTIONS ****************************/
@@ -106,11 +119,4 @@ void Vector3::operator/=(float scalar)
 	x /= scalar;
 	y /= scalar;
 	z /= scalar;
-}
-
-
-std::ostream& operator<<(std::ostream& os, const Vector3& vec)
-{
-	os << "Vector3( x:" << vec.x << ", y:" << vec.y << ", z:" << vec.z << " )";
-	return os;
 }

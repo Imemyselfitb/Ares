@@ -45,6 +45,23 @@ void KalmanFilter::initUpdateJacobians()
 	m_JacobianUpdateDeltaGyro(2, 20) = -1.0f;
 }
 
+void KalmanFilter::CalibrateInitialState()
+{
+	// Assume the object is stationary
+	CurrentState.Position *= 0;
+	CurrentState.Velocity *= 0;
+
+	Vector3 accel1 = ProcessInputs.Accel1 - (CurrentState.BiasMeanAccel + CurrentState.BiasDeltaAccel * 0.5f);
+	Vector3 accel2 = ProcessInputs.Accel2 - (CurrentState.BiasMeanAccel - CurrentState.BiasDeltaAccel * 0.5f);
+	Vector3 accelBody = accel1 * m_IMU1Weight + accel2 * (1.0f - m_IMU1Weight);
+	CurrentState.Orientation = Quaternion{ accelBody, Vector3{0.0, accelBody.mag(), 0.0} };
+
+	CurrentState.BiasMeanAccel = (ProcessInputs.Accel1 + ProcessInputs.Accel2) * 0.5f;
+	CurrentState.BiasMeanGyro = (ProcessInputs.Gyro1 + ProcessInputs.Gyro2) * 0.5f;
+	CurrentState.BiasDeltaAccel = ProcessInputs.Accel1 - ProcessInputs.Accel2;
+	CurrentState.BiasDeltaGyro = ProcessInputs.Gyro1 - ProcessInputs.Gyro2;
+}
+
 void KalmanFilter::Predict(float delta)
 {
 	predictState(delta);
@@ -58,7 +75,7 @@ void KalmanFilter::predictState(float delta)
 	Vector3 accel1 = ProcessInputs.Accel1 - (CurrentState.BiasMeanAccel + CurrentState.BiasDeltaAccel * 0.5f);
 	Vector3 accel2 = ProcessInputs.Accel2 - (CurrentState.BiasMeanAccel - CurrentState.BiasDeltaAccel * 0.5f);
 	Vector3 accelBody = accel1 * m_IMU1Weight + accel2 * (1.0f - m_IMU1Weight);
-	m_Accel = CurrentState.Orientation.rotateVector(accelBody)- Vector3(0.0f, 9.80665f, 0.0f);
+	m_Accel = CurrentState.Orientation.rotateVector(accelBody) - Vector3(0.0f, 9.80665f, 0.0f);
 
 	// Subtract gyro biases (already in body-frame)
 	Vector3 gyro1 = ProcessInputs.Gyro1 - (CurrentState.BiasMeanGyro + CurrentState.BiasDeltaGyro * 0.5f);
