@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Math/Vector2.h"
-#include "Math/Vector3.h"
-#include "Math/Quaternion.h"
+#include "Vector2.h"
+#include "Vector3.h"
+#include "Quaternion.h"
 
 struct PID_Gain
 {

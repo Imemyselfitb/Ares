@@ -12,6 +12,7 @@ void KalmanFilter::initSensorNoise()
 	SensorNoiseBarom = 1.0f;
 	SensorNoiseGPS = Vector3{ 1.0f, 1.0f, 1.0f };
 	SensorNoiseMag = Vector3{ 0.01f, 0.01f, 0.01f };
+	//BIASES:
 	SensorNoiseDeltaGyro = Vector3{ 0.5f, 0.5f, 0.5f };
 	SensorNoiseDeltaAccel = Vector3{ 0.5f, 0.5f, 0.5f };
 
@@ -57,7 +58,7 @@ void KalmanFilter::predictState(float delta)
 	Vector3 accel1 = ProcessInputs.Accel1 - (CurrentState.BiasMeanAccel + CurrentState.BiasDeltaAccel * 0.5f);
 	Vector3 accel2 = ProcessInputs.Accel2 - (CurrentState.BiasMeanAccel - CurrentState.BiasDeltaAccel * 0.5f);
 	Vector3 accelBody = accel1 * m_IMU1Weight + accel2 * (1.0f - m_IMU1Weight);
-	m_Accel = CurrentState.Orientation.rotateVector(accelBody);
+	m_Accel = CurrentState.Orientation.rotateVector(accelBody)- Vector3(0.0f, 9.80665f, 0.0f);
 
 	// Subtract gyro biases (already in body-frame)
 	Vector3 gyro1 = ProcessInputs.Gyro1 - (CurrentState.BiasMeanGyro + CurrentState.BiasDeltaGyro * 0.5f);
@@ -123,8 +124,7 @@ void KalmanFilter::predictCovariance(float delta)
 {
 	// stateCovariance = jacobian.dot(stateCovariance).dot(jacobian.transposed()).add(processNoise)
 	m_ScratchMatrix1.AssignDotProduct(m_JacobianPredict, m_ErrorCovariance);
-	m_JacobianPredict.Transpose();
-	m_ErrorCovariance.AssignDotProduct(m_ScratchMatrix1, m_JacobianPredict);
+	m_ErrorCovariance.AssignDotProduct(m_ScratchMatrix1, m_JacobianPredict.Transposed());
 	m_ErrorCovariance += m_ProcessNoise;
 }
 
@@ -265,17 +265,18 @@ void KalmanFilter::UpdateDeltaAccel()
 
 void KalmanFilter::updateCovariance(Matrix& updateJacobian, Matrix& sensorNoise)
 {
-	// measurementCovariance = jacobian.dot(stateCovariance.dot(jacobianTransp)).add(sensorNoise)
+	// measurementCovariance = jacobian.dot(stateCovariance).dot(jacobianTransp).add(sensorNoise)
 	m_KalmanGain.AssignDotProduct(updateJacobian, m_ErrorCovariance); // [not currently the kalman gain]
-	updateJacobian.Transpose(); // jacobian -> jacobianTransp
-	m_MeasurementCovariance.AssignDotProduct(m_KalmanGain, updateJacobian);
-	updateJacobian.Transpose(); // jacobianTransp -> jacobian
+	m_MeasurementCovariance.AssignDotProduct(m_KalmanGain, updateJacobian.Transposed());
 	m_MeasurementCovariance += sensorNoise;
 
 	// kalmanGain = stateCovariance.dot(jacobianTransp).dot(measurementCovariance.inv())
 	// [NOW USES CHOLESKY SOLVING!!!!]: kalmanGain = jacobian.dot(stateCovariance).solve(measurementCovariance.cholesky()).transposed()
-	m_MeasurementCovariance.CholeskyDecompose();
+	bool success = m_MeasurementCovariance.CholeskyDecompose();
 	m_KalmanGain.SolveCholesky(m_MeasurementCovariance);
+
+	// OUTPUT_FLOAT_ARES(m_MeasurementCovariance(0,0), 3);
+
 	m_KalmanGain.Transpose();
 
 	// stateInnovation = kalmanGain.dot(dif)
@@ -289,8 +290,7 @@ void KalmanFilter::updateCovariance(Matrix& updateJacobian, Matrix& sensorNoise)
 	
 	// stateCovariance = correction.dot(stateCovariance).dot(correction.transposed())
 	m_ScratchMatrix1.AssignDotProduct(m_CovarianceCorrection, m_ErrorCovariance);
-	m_CovarianceCorrection.Transpose();
-	m_ErrorCovariance.AssignDotProduct(m_ScratchMatrix1, m_CovarianceCorrection);
+	m_ErrorCovariance.AssignDotProduct(m_ScratchMatrix1, m_CovarianceCorrection.Transposed());
 
 	// stateCovariance = stateCovariance.add(kalmanGain.dot(sensorNoise).dot(kalmanGain.transposed()))
 	m_ScratchMatrix2.AssignDotProduct(m_KalmanGain, sensorNoise);

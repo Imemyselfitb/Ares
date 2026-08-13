@@ -1,4 +1,8 @@
 #include "Matrix.h"
+#include <cstring>
+#include <cmath>
+
+#define _ASSERT(x)
 
 Matrix::Matrix(uint8_t rows, uint8_t cols)
 	: rows(rows), cols(cols)
