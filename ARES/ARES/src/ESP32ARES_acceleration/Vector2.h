@@ -47,5 +47,3 @@ public:
 	void operator*=(float scalar);
 	void operator/=(float scalar);
 };
-
-std::ostream& operator<<(std::ostream& os, const Vector2& vec);

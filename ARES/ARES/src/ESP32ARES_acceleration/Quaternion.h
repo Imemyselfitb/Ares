@@ -2,6 +2,8 @@
 
 #include "Vector3.h"
 
+#include <stdint.h>
+
 extern void OUTPUT_TEXT_ARES(const char* txt);
 extern void OUTPUT_FLOAT_ARES(float num, uint8_t dp);
 
@@ -52,5 +54,3 @@ public:
 	void operator*=(float scalar);
 	void operator/=(float scalar);
 };
-
-std::ostream& operator<<(std::ostream& os, const Quaternion& quat);
