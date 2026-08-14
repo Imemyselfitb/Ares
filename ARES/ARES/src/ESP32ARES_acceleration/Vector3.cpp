@@ -14,8 +14,8 @@ float Vector3::mag() const
 Vector3 Vector3::normalised() const
 {
 	float magnitude = mag();
-	if (magnitude == 0.0)
-		return Vector3{ 0.0, 0.0, 0.0 };
+	if (magnitude == 0.0f)
+		return Vector3{ 0.0f, 0.0f, 0.0f };
 
 	return Vector3{ x / magnitude, y / magnitude, z / magnitude };
 }

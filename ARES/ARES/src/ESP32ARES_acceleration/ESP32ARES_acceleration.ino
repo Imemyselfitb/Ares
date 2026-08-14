@@ -6,6 +6,16 @@
 
 KalmanFilter KF;
 
+enum class CalibrationStage
+{
+    SETUP = 0,
+    CALIBRATE_IMU_UP,
+    CALIBRATE_IMU_DOWN,
+    CALIBRATE_STATE,
+    READY
+};
+CalibrationStage currentCalibrationStage = CalibrationStage::SETUP;
+
 unsigned long lastMicros = 0; // Shared clock for dt tracking
 
 void OUTPUT_TEXT_ARES(const char* txt)
@@ -30,7 +40,7 @@ void setup()
     Serial.println(F(" --- DIRECT AVIONICS MULTI-SENSOR ENGINE --- "));
   
     // Initialize I2C bus channels
-    Serial.print(F("Booting Bosch BMI088... "));
+    Serial.println(F("Booting Bosch BMI088... "));
     int statusCodeBMI = IMUs::BootBMI();
     if (statusCodeBMI == 0)
         Serial.println(F("SUCCESS: Bosch BMI088 configured to [24G / 2000DPS]"));
@@ -40,7 +50,7 @@ void setup()
         Serial.println(statusCodeBMI);
     }
 
-    Serial.print(F("Booting TDK ICM-45686... "));
+    Serial.println(F("Booting TDK ICM-45686... "));
     int statusCodeTDK = IMUs::BootTDK();
     if (statusCodeTDK == 0)
         Serial.println(F("SUCCESS: TDK ICM-45686 configured to [32G / 2000DPS]"));
@@ -49,16 +59,96 @@ void setup()
         Serial.print(F("FAILED. Error: "));
         Serial.println(statusCodeTDK);
     }
-    
-    IMUs::GetReadingsBMI(KF.ProcessInputs.Accel1, KF.ProcessInputs.Gyro1);
-    IMUs::GetReadingsTDK(KF.ProcessInputs.Accel2, KF.ProcessInputs.Gyro2);
-    KF.CalibrateInitialState();
-    Serial.print(F("Kalman Filter's Initial State Calibrated."));
 
+    currentCalibrationStage = CalibrationStage::CALIBRATE_IMU_UP;
     lastMicros = micros(); // Establish system reference frame clock
 }
 
 float tdkQW = 1.0f, tdkQX = 0.0f, tdkQY = 0.0f, tdkQZ = 0.0f;
+
+uint16_t imuAvgFrame = 0;
+Vector3 averageAcc1, averageAcc2;
+Vector3 averageUpAcc1, averageUpAcc2;
+void AverageReadingsIMU()
+{
+    float scaleOld = (float)imuAvgFrame / (float)(imuAvgFrame + 1);
+    float scaleNew = 1.0f - scaleOld;
+
+    averageAcc1 = (averageAcc1 * scaleOld) + (KF.ProcessInputs.Accel1 * scaleNew);
+    averageAcc2 = (averageAcc2 * scaleOld) + (KF.ProcessInputs.Accel2 * scaleNew);
+
+    imuAvgFrame += 1;
+}
+
+void CalibrateUpIMU()
+{
+    // Assuming 300Hz, spend 5s = ~1500frames
+    if (imuAvgFrame < 1500)
+    {
+        if (imuAvgFrame == 0)
+        {
+            averageAcc1 *= 0.0f;
+            averageAcc2 *= 0.0f;
+            Serial.println(F("Calibrating IMUs Orientation..."));
+            Serial.println(F("Averaging IMUs Up Acceleration... [Ensure Rocket is completely vertical]"));
+        }
+
+        AverageReadingsIMU();
+        return;
+    }
+
+    averageUpAcc1 = averageAcc1;
+    averageUpAcc2 = averageAcc2;
+    Serial.println(F("SUCCESS: IMU Average Up Acceleration Measured"));
+    Serial.println(F("Flip Rocket 180* within 10s"));
+    currentCalibrationStage = CalibrationStage::CALIBRATE_IMU_DOWN;
+    imuAvgFrame = 0;
+}
+
+void CalibrateDownIMU()
+{
+    // Assuming 300Hz, spend 5s = ~1500frames
+    if (imuAvgFrame < 1500)
+    {
+        if (imuAvgFrame == 0)
+        {
+            averageAcc1 *= 0.0f;
+            averageAcc2 *= 0.0f;
+            Serial.println(F("Averaging IMUs Down Acceleration... [Ensure Rocket is flipped 180*]"));
+        }
+
+        AverageReadingsIMU();
+        return;
+    }
+
+    KF.CalibrateIMURotationalOffset(averageUpAcc1, averageAcc1, averageUpAcc2, averageAcc2);
+    Serial.println(F("SUCCESS: IMU Rotational Offset Calibrated"));
+    currentCalibrationStage = CalibrationStage::CALIBRATE_STATE;
+    imuAvgFrame = 0;
+}
+
+void CalibrateState()
+{
+    // Assuming 300Hz, spend 5s = ~1500frames
+    if (imuAvgFrame < 1500)
+    {
+        if (imuAvgFrame == 0)
+        {
+            averageAcc1 *= 0.0f;
+            averageAcc2 *= 0.0f;
+            Serial.println(F("Calibrating Kalman Filter State... "));
+        }
+
+        AverageReadingsIMU();
+        return;
+    }
+
+    KF.CalibrateInitialState(averageAcc1, averageAcc2);
+    Serial.println(F("SUCCESS: Kalman Filter's Initial State Calibrated"));
+
+    currentCalibrationStage = CalibrationStage::READY;
+    imuAvgFrame = 0;
+}
 
 void loop()
 {
@@ -70,11 +160,31 @@ void loop()
 
     IMUs::GetReadingsBMI(KF.ProcessInputs.Accel1, KF.ProcessInputs.Gyro1);
     IMUs::GetReadingsTDK(KF.ProcessInputs.Accel2, KF.ProcessInputs.Gyro2);
-
     KF.SensorReadings.DeltaAccel = KF.ProcessInputs.Accel1 - KF.ProcessInputs.Accel2;
     KF.SensorReadings.DeltaGyro = KF.ProcessInputs.Gyro1 - KF.ProcessInputs.Gyro2; 
-    KF.Predict(dt);
 
+    if (currentCalibrationStage == CalibrationStage::CALIBRATE_IMU_UP)
+    {
+        CalibrateUpIMU();
+        return;
+    }
+
+    static float accDelta = 0.0f;
+    if (currentCalibrationStage == CalibrationStage::CALIBRATE_IMU_DOWN)
+    {
+        if (imuAvgFrame > 0 || accDelta > 10.0f)
+            CalibrateDownIMU();
+
+        accDelta += dt;
+        return;
+    }
+
+    KF.CorrectIMUReadings();
+
+    if (currentCalibrationStage == CalibrationStage::CALIBRATE_STATE)
+        CalibrateState();
+
+    KF.Predict(dt);
     KF.UpdateDeltaAccel();
     KF.UpdateDeltaGyro();
 
@@ -98,9 +208,9 @@ void loop()
 
     // TELEMETRY OUTPUT ENGINE (Serial Stream)
 
-    static float accDelta = 0.0f;
-    accDelta += dt;
-    if (accDelta > 0.100) // Output only once every 100ms
+    static float accDeltaLog = 0.0f;
+    accDeltaLog += dt;
+    if (accDeltaLog > 0.100) // Output only once every 100ms
     {
         Serial.print(F("  POSITION XYZ:")) ;
         Serial.print(KF.CurrentState.Position.x, 1); Serial.print(F(","));

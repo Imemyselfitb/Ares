@@ -14,8 +14,8 @@ float Vector2::mag() const
 Vector2 Vector2::normalised() const
 {
 	float magnitude = mag();
-	if (magnitude == 0.0)
-		return Vector2{ 0.0, 0.0 };
+	if (magnitude == 0.0f)
+		return Vector2{ 0.0f, 0.0f };
 
 	return Vector2{ x / magnitude, y / magnitude };
 }
@@ -48,7 +48,7 @@ void Vector2::normalise()
 void Vector2::setMag(float newMag)
 {
 	float magnitude = mag();
-	if (magnitude == 0.0)
+	if (magnitude == 0.0f)
 		return;
 
 	x *= newMag / magnitude;

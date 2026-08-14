@@ -10,12 +10,12 @@ Quaternion::Quaternion(const Vector3& from, const Vector3& to)
 	y = cross.y;
 	z = cross.z;
 
-	if (std::abs(w) < 0.000001)
+	if (std::abs(w) < 0.000001f)
 	{
-		w = 1.0;
-		x = 0.0;
-		y = 0.0;
-		z = 0.0;
+		w = 1.0f;
+		x = 0.0f;
+		y = 0.0f;
+		z = 0.0f;
 	}
 }
 
@@ -43,8 +43,8 @@ Quaternion Quaternion::conjugate() const
 Quaternion Quaternion::inverse() const
 {
 	float magnitudeSq = magSq();
-	if (magnitudeSq == 0.0)
-		return Quaternion{ 1.0, 0.0, 0.0, 0.0 };
+	if (magnitudeSq == 0.0f)
+		return Quaternion{ 1.0f, 0.0f, 0.0f, 0.0f };
 
 	return Quaternion{ w / magnitudeSq, -x / magnitudeSq, -y / magnitudeSq, -z / magnitudeSq };
 }
