@@ -12,6 +12,16 @@
 #define PI 3.14159265f
 #endif // !PI
 
+// Instantiate official TDK constructor interface targeting standard I2C bus
+static ICM456xx icm{ Wire, 1 };
+static void writeReg(uint8_t dev, uint8_t reg, uint8_t val)
+{
+    Wire.beginTransmission(dev);
+    Wire.write(reg);
+    Wire.write(val);
+    Wire.endTransmission(true); // Always force standard bus termination on writes
+}
+
 int IMUs::BootBMI()
 {
     Wire.begin(I2C_SDA, I2C_SCL);
@@ -43,12 +53,12 @@ int IMUs::BootBMI()
 
 int IMUs::BootTDK()
 {
-    int icmStatus = s_ICM.begin();
+    int icmStatus = icm.begin();
     if (icmStatus != 0)
         return icmStatus;
 
-    s_ICM.startAccel(100, 32);   // Start at 100Hz ODR and +/- 32G range
-    s_ICM.startGyro(100, 2000);  // Wake the integrated TDK gyro engine at 100Hz and +/- 2000 DPS
+    icm.startAccel(100, 32);   // Start at 100Hz ODR and +/- 32G range
+    icm.startGyro(100, 2000);  // Wake the integrated TDK gyro engine at 100Hz and +/- 2000 DPS
     return 0;
 }
 
@@ -92,7 +102,7 @@ void IMUs::GetReadingsBMI(Vector3& outAccel, Vector3& outGyro)
 void IMUs::GetReadingsTDK(Vector3& outAccel, Vector3& outGyro)
 {
     inv_imu_sensor_data_t icmData;
-    s_ICM.getDataFromRegisters(icmData);
+    icm.getDataFromRegisters(icmData);
 
     outAccel.x = ((float)icmData.accel_data[0] * 32.0f / 32768.0f) * 9.80665f;
     outAccel.y = ((float)icmData.accel_data[1] * 32.0f / 32768.0f) * 9.80665f;
@@ -101,12 +111,4 @@ void IMUs::GetReadingsTDK(Vector3& outAccel, Vector3& outGyro)
     outGyro.x = ((float)icmData.gyro_data[0] * 2000.0f / 32768.0f) * (PI / 180.0f);
     outGyro.y = ((float)icmData.gyro_data[1] * 2000.0f / 32768.0f) * (PI / 180.0f);
     outGyro.z = ((float)icmData.gyro_data[2] * 2000.0f / 32768.0f) * (PI / 180.0f);
-}
-
-void IMUs::writeReg(uint8_t dev, uint8_t reg, uint8_t val)
-{
-    Wire.beginTransmission(dev);
-    Wire.write(reg);
-    Wire.write(val);
-    Wire.endTransmission(true); // Always force standard bus termination on writes
 }

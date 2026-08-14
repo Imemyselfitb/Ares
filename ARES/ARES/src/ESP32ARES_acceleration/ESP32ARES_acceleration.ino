@@ -37,7 +37,7 @@ void setup()
     else
     {
         Serial.print(F("FAILED. Error: "));
-        Serial.println(statusCodeTDK);
+        Serial.println(statusCodeBMI);
     }
 
     Serial.print(F("Booting TDK ICM-45686... "));
@@ -53,6 +53,7 @@ void setup()
     IMUs::GetReadingsBMI(KF.ProcessInputs.Accel1, KF.ProcessInputs.Gyro1);
     IMUs::GetReadingsTDK(KF.ProcessInputs.Accel2, KF.ProcessInputs.Gyro2);
     KF.CalibrateInitialState();
+    Serial.print(F("Kalman Filter's Initial State Calibrated."));
 
     lastMicros = micros(); // Establish system reference frame clock
 }
