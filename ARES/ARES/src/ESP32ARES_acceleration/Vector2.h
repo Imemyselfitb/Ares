@@ -29,6 +29,7 @@ public:
 	float dot(const Vector2& other) const;
 
 	void Print() const;
+	void PrintRaw() const;
 
 public:
 	void normalise();

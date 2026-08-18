@@ -39,6 +39,7 @@ public:
 	void toRotationMatrix(float* matrix) const;
 
 	void Print() const;
+	void PrintRaw() const;
 
 public:
 	Quaternion operator+(const Quaternion& other) const;

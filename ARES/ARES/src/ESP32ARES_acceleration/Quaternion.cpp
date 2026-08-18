@@ -88,6 +88,16 @@ void Quaternion::Print() const
 	OUTPUT_FLOAT_ARES(z, 3);
 	OUTPUT_TEXT_ARES(")");
 }
+void Quaternion::PrintRaw() const
+{
+	OUTPUT_FLOAT_ARES(w, 3);
+	OUTPUT_TEXT_ARES(", ");
+	OUTPUT_FLOAT_ARES(x, 3);
+	OUTPUT_TEXT_ARES(", ");
+	OUTPUT_FLOAT_ARES(y, 3);
+	OUTPUT_TEXT_ARES(", ");
+	OUTPUT_FLOAT_ARES(z, 3);
+}
 
 /****************************** CONST OPERATORS ******************************/
 Quaternion Quaternion::operator+(const Quaternion& other) const

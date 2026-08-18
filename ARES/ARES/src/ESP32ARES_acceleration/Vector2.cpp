@@ -34,6 +34,12 @@ void Vector2::Print() const
 	OUTPUT_FLOAT_ARES(y, 3);
 	OUTPUT_TEXT_ARES(")");
 }
+void Vector2::PrintRaw() const
+{
+	OUTPUT_FLOAT_ARES(x, 3);
+	OUTPUT_TEXT_ARES(", ");
+	OUTPUT_FLOAT_ARES(y, 3);
+}
 
 /**************************** NON-CONST FUNCTIONS ****************************/
 void Vector2::normalise()

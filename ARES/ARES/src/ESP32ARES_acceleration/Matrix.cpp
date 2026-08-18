@@ -176,7 +176,7 @@ void Matrix::SolveCholesky(const Matrix& cholesky)
 
 void Matrix::Print() const
 {
-	OUTPUT_TEXT_ARES("[\n\t[");
+	OUTPUT_TEXT_ARES("[\n\t[\n");
 	for (uint8_t i = 0; i < rows; i++)
 	{
 		for (uint8_t j = 0; j < cols; j++)
@@ -188,5 +188,5 @@ void Matrix::Print() const
 		if (i < rows - 1)
 			OUTPUT_TEXT_ARES("],\n\t[");
 	}
-	OUTPUT_TEXT_ARES("]\n]");
+	OUTPUT_TEXT_ARES("]\n]\n");
 }

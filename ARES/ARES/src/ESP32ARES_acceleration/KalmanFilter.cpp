@@ -91,6 +91,12 @@ void KalmanFilter::predictState(float delta)
 	Vector3 accelBody = ProcessInputs.Accel1 * m_IMU1Weight + ProcessInputs.Accel2 * (1.0f - m_IMU1Weight);
 	m_Accel = CurrentState.Orientation.rotateVector(accelBody) - Vector3(0.0f, 9.80665f, 0.0f);
 
+	OUTPUT_TEXT_ARES("Accel Body: ");
+	accelBody.Print();
+	OUTPUT_TEXT_ARES("; Accel: ");
+	m_Accel.Print();
+	OUTPUT_TEXT_ARES("\n");
+
 	// Weight angular velocity (already in body-frame)
 	m_AngVel = ProcessInputs.Gyro1 * m_IMU1Weight + ProcessInputs.Gyro2 * (1.0f - m_IMU1Weight);
 

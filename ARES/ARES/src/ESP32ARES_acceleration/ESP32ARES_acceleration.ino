@@ -1,6 +1,9 @@
 #include "KalmanFilter.h"
 #include "Sensors.h"
 
+#include "SaveData.h"
+#include "PID.h"
+
 // Onboard WS2812 RGB Parameter 
 #define RGB_LED_PIN 38  // WS2812 LED Pin for N8R8
 
@@ -18,9 +21,12 @@ CalibrationStage currentCalibrationStage = CalibrationStage::SETUP;
 
 unsigned long lastMicros = 0; // Shared clock for dt tracking
 
+FileSerialiser FS{ "/SaveData.rckt" };
+SaveDataBuffer dataBuffer;
+
 void OUTPUT_TEXT_ARES(const char* txt)
 {
-    Serial.println(txt);
+    Serial.print(txt);
 }
 
 void OUTPUT_FLOAT_ARES(float num, uint8_t dp)
@@ -59,6 +65,20 @@ void setup()
         Serial.print(F("FAILED. Error: "));
         Serial.println(statusCodeTDK);
     }
+
+    FS.Init();
+    dataBuffer.Data[0].CurrentState = KF.CurrentState;
+    dataBuffer.Data[0].ProcessInputs = KF.ProcessInputs;
+    dataBuffer.Data[0].SensorReadings = KF.SensorReadings;
+    dataBuffer.Data[0].PIDState.Target = Vector3{ 0.0f, 2.0f, 0.0f };
+    dataBuffer.Data[0].PIDState.TargetOffset = Vector3{ 0.0f, 1.0f, 0.0f };
+    dataBuffer.Data[0].PIDState.TargetHeading = Vector3{ 0.0f, 1.0f, 0.0f };
+    dataBuffer.Data[0].PIDState.ServoOrientation = Vector2{ 0.0f, 0.0f };
+    dataBuffer.Data[0].PIDState.Thrust = 10.0f;
+    FS.Submit(dataBuffer);
+    FS.Close();
+
+    FS.OutAll();
 
     currentCalibrationStage = CalibrationStage::CALIBRATE_IMU_UP;
     lastMicros = micros(); // Establish system reference frame clock
@@ -127,7 +147,7 @@ void CalibrateDownIMU()
     imuAvgFrame = 0;
 }
 
-void CalibrateState()
+bool CalibrateState()
 {
     // Assuming 300Hz, spend 5s = ~1500frames
     if (imuAvgFrame < 1500)
@@ -140,7 +160,7 @@ void CalibrateState()
         }
 
         AverageReadingsIMU();
-        return;
+        return false;
     }
 
     KF.CalibrateInitialState(averageAcc1, averageAcc2);
@@ -148,6 +168,7 @@ void CalibrateState()
 
     currentCalibrationStage = CalibrationStage::READY;
     imuAvgFrame = 0;
+    return true;
 }
 
 void loop()
@@ -162,6 +183,10 @@ void loop()
     IMUs::GetReadingsTDK(KF.ProcessInputs.Accel2, KF.ProcessInputs.Gyro2);
     KF.SensorReadings.DeltaAccel = KF.ProcessInputs.Accel1 - KF.ProcessInputs.Accel2;
     KF.SensorReadings.DeltaGyro = KF.ProcessInputs.Gyro1 - KF.ProcessInputs.Gyro2; 
+
+    float tdkRadX = KF.ProcessInputs.Gyro2.x;
+    float tdkRadY = KF.ProcessInputs.Gyro2.y;
+    float tdkRadZ = KF.ProcessInputs.Gyro2.z;
 
     if (currentCalibrationStage == CalibrationStage::CALIBRATE_IMU_UP)
     {
@@ -184,14 +209,25 @@ void loop()
     if (currentCalibrationStage == CalibrationStage::CALIBRATE_STATE)
         CalibrateState();
 
+    static float accDeltaCalibrationTest = 0.0f;
+    accDeltaCalibrationTest += dt;
+    if (accDeltaCalibrationTest > 10.0f)
+    {
+        if (imuAvgFrame == 0)
+            Serial.println("Recalibrating State [Every 15 Seconds]...");
+
+        if (CalibrateState())
+        {
+            accDeltaCalibrationTest = 0.0f;
+            Serial.println("State Recalibrated.");
+        }
+    }
+
     KF.Predict(dt);
     KF.UpdateDeltaAccel();
     KF.UpdateDeltaGyro();
 
     // THE [OLD] QUATERNION STUFF
-    float tdkRadX = KF.ProcessInputs.Gyro2.x;
-    float tdkRadY = KF.ProcessInputs.Gyro2.y;
-    float tdkRadZ = KF.ProcessInputs.Gyro2.z;
 
     float dT_dQW = 0.5f * (-tdkQX * tdkRadX - tdkQY * tdkRadY - tdkQZ * tdkRadZ) * dt;
     float dT_dQX = 0.5f * ( tdkQW * tdkRadX + tdkQY * tdkRadZ - tdkQZ * tdkRadY) * dt;
@@ -210,8 +246,10 @@ void loop()
 
     static float accDeltaLog = 0.0f;
     accDeltaLog += dt;
-    if (accDeltaLog > 0.100) // Output only once every 100ms
+    if (accDeltaLog > 0.100f) // Output only once every 100ms
     {
+        accDeltaLog = 0.0f;
+
         Serial.print(F("  POSITION XYZ:")) ;
         Serial.print(KF.CurrentState.Position.x, 1); Serial.print(F(","));
         Serial.print(KF.CurrentState.Position.y, 1); Serial.print(F(","));

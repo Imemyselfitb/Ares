@@ -31,6 +31,7 @@ public:
 	Vector3 cross(const Vector3& other) const;
 
 	void Print() const;
+	void PrintRaw() const;
 
 public:
 	void normalise();

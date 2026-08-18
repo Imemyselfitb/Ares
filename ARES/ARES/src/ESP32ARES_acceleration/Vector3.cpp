@@ -45,6 +45,15 @@ void Vector3::Print() const
 	OUTPUT_TEXT_ARES(")");
 }
 
+void Vector3::PrintRaw() const
+{
+	OUTPUT_FLOAT_ARES(x, 3);
+	OUTPUT_TEXT_ARES(", ");
+	OUTPUT_FLOAT_ARES(y, 3);
+	OUTPUT_TEXT_ARES(", ");
+	OUTPUT_FLOAT_ARES(z, 3);
+}
+
 /**************************** NON-CONST FUNCTIONS ****************************/
 void Vector3::normalise()
 {
