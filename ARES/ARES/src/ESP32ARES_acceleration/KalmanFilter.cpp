@@ -56,6 +56,15 @@ void KalmanFilter::CalibrateIMURotationalOffset(const Vector3 &AverageAccelUpIMU
 	Vector3 upIMU2 = (AverageAccelUpIMU2 - AverageAccelDownIMU2) * 0.5f;
 	m_SensorAlignmentIMU1 = Quaternion{ upIMU1, Vector3{ 0.0f, upIMU1.mag(), 0.0f } };
 	m_SensorAlignmentIMU2 = Quaternion{ upIMU2, Vector3{ 0.0f, upIMU2.mag(), 0.0f } };
+
+	OUTPUT_TEXT_ARES("Sensors Alignment - S1: ");
+	m_SensorAlignmentIMU1.rotateVector(Vector3(0.0f, 1.0f, 0.0f)).Print();
+	OUTPUT_TEXT_ARES(" and S2: ");
+	m_SensorAlignmentIMU2.rotateVector(Vector3(0.0f, 1.0f, 0.0f)).Print();
+	OUTPUT_TEXT_ARES("\n");
+
+	m_SensorAlignmentIMU1.toRotationMatrix(m_SensorAlignmentIMU1Mat);
+	m_SensorAlignmentIMU2.toRotationMatrix(m_SensorAlignmentIMU2Mat);
 }
 
 void KalmanFilter::CorrectIMUReadings()
@@ -123,36 +132,42 @@ void KalmanFilter::predictJacobian(float delta)
 	float rotationMatrix[9];
 	CurrentState.Orientation.toRotationMatrix(rotationMatrix);
 
-	float deltaIMUScale = 1.0f - 2.0f * m_IMU1Weight;
-	for (uint8_t i = 0; i < 3; ++i)
+	Vector3 accelBody = ProcessInputs.Accel1 * m_IMU1Weight + ProcessInputs.Accel2 * (1.0f - m_IMU1Weight);
+
+	for (uint8_t i = 0; i < 3; i++)
 	{
-		// Verror = -R(q)*S(a)*Qerror - R(q)*BAerror + R(q)*(1-2w)*BADerror
-		m_JacobianPredict(3 + i, 6) = delta * (rotationMatrix[2 + i * 3] * m_Accel.y - rotationMatrix[1 + i * 3] * m_Accel.z);
-		m_JacobianPredict(3 + i, 7) = delta * (rotationMatrix[0 + i * 3] * m_Accel.z - rotationMatrix[2 + i * 3] * m_Accel.x);
-		m_JacobianPredict(3 + i, 8) = delta * (rotationMatrix[1 + i * 3] * m_Accel.x - rotationMatrix[0 + i * 3] * m_Accel.y);
-		m_JacobianPredict(3 + i, 9) = delta * -rotationMatrix[0 + i * 3];
-		m_JacobianPredict(3 + i, 10) = delta * -rotationMatrix[1 + i * 3];
-		m_JacobianPredict(3 + i, 11) = delta * -rotationMatrix[2 + i * 3];
-		m_JacobianPredict(3 + i, 15) = delta * rotationMatrix[0 + i * 3] * deltaIMUScale;
-		m_JacobianPredict(3 + i, 16) = delta * rotationMatrix[1 + i * 3] * deltaIMUScale;
-		m_JacobianPredict(3 + i, 17) = delta * rotationMatrix[2 + i * 3] * deltaIMUScale;
+		// Verror = -R(q)*S(a)*Qerror - R(q)*(A1*w + A2*(1-w))*BAerror + R(q)*0.5*(A2*(1-w) - A1*w)*BADerror
+		m_JacobianPredict(3 + i, 6) = delta * (rotationMatrix[i*3 + 2] * accelBody.y - rotationMatrix[i*3 + 1] * accelBody.z);
+		m_JacobianPredict(3 + i, 7) = delta * (rotationMatrix[i*3 + 0] * accelBody.z - rotationMatrix[i*3 + 2] * accelBody.x);
+		m_JacobianPredict(3 + i, 8) = delta * (rotationMatrix[i*3 + 1] * accelBody.x - rotationMatrix[i*3 + 0] * accelBody.y);
+		Vector3 rotationMatRow = *(Vector3*)&rotationMatrix[i * 3]; // = Vector3(rotationMatrix[i*3, i*3+1, i*3+2])
+		for (uint8_t j = 0; j < 3; j++)
+		{
+			float rotatedAlignment1 = rotationMatRow.dot(Vector3{ m_SensorAlignmentIMU1Mat[j], m_SensorAlignmentIMU1Mat[3 + j], m_SensorAlignmentIMU1Mat[6 + j] }) * m_IMU1Weight;
+			float rotatedAlignment2 = rotationMatRow.dot(Vector3{ m_SensorAlignmentIMU2Mat[j], m_SensorAlignmentIMU2Mat[3 + j], m_SensorAlignmentIMU2Mat[6 + j] }) * (1.0 - m_IMU1Weight);
+			m_JacobianPredict(3 + i, 9 + j) = delta * -(rotatedAlignment1 + rotatedAlignment2);
+			m_JacobianPredict(3 + i, 15 + j) = delta * 0.5f * (rotatedAlignment2 - rotatedAlignment1);
+		}
 	}
 
-	// Qerror = -S(w)*Qerror - BGerror - (1-2w)*BGDerror
+	// Qerror = -S(w)*Qerror - (A1*w + A2*(1-w))*BGerror - (1-2w)*BGDerror
 	m_JacobianPredict(6, 7) = delta * m_AngVel.z;
 	m_JacobianPredict(6, 8) = delta * -m_AngVel.y;
-	m_JacobianPredict(6, 12) = -delta;
-	m_JacobianPredict(6, 18) = delta * deltaIMUScale;
-
 	m_JacobianPredict(7, 6) = delta * -m_AngVel.z;
 	m_JacobianPredict(7, 8) = delta * m_AngVel.x;
-	m_JacobianPredict(7, 13) = -delta;
-	m_JacobianPredict(7, 19) = delta * deltaIMUScale;
-
 	m_JacobianPredict(8, 6) = delta * m_AngVel.y;
 	m_JacobianPredict(8, 7) = delta * -m_AngVel.x;
-	m_JacobianPredict(8, 14) = -delta;
-	m_JacobianPredict(8, 20) = delta * deltaIMUScale;
+	for(uint8_t i = 0; i < 3; i++)
+	{
+		Vector3 alignmentWeighted1 = *(Vector3*)&m_SensorAlignmentIMU1Mat[i * 3] * m_IMU1Weight;
+		Vector3 alignmentWeighted2 = *(Vector3*)&m_SensorAlignmentIMU2Mat[i * 3] * (1.0f - m_IMU1Weight));
+		m_JacobianPredict(6+i, 12) = delta * -(alignmentWeighted1.x + alignmentWeighted2.x);
+		m_JacobianPredict(6+i, 13) = delta * -(alignmentWeighted1.y + alignmentWeighted2.y);
+		m_JacobianPredict(6+i, 14) = delta * -(alignmentWeighted1.z + alignmentWeighted2.z);
+		m_JacobianPredict(6+i, 18) = delta * 0.5f * (alignmentWeighted2.x - alignmentWeighted1.x);
+		m_JacobianPredict(6+i, 19) = delta * 0.5f * (alignmentWeighted2.y - alignmentWeighted1.y);
+		m_JacobianPredict(6+i, 20) = delta * 0.5f * (alignmentWeighted2.z - alignmentWeighted1.z);
+	}
 }
 
 void KalmanFilter::predictCovariance(float delta)

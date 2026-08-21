@@ -92,6 +92,8 @@ private:
 	Vector3 m_MagFieldWorld{ 0.0f, sinf(3.1415f * 0.333f), cosf(3.1415f * 0.333f) };
 	Quaternion m_SensorAlignmentIMU1;
 	Quaternion m_SensorAlignmentIMU2;
+	float m_SensorAlignmentIMU1Mat[9];
+	float m_SensorAlignmentIMU2Mat[9];
 
 private:
 	Matrix m_ErrorEstimate{ NUM_STATES, 1 };
