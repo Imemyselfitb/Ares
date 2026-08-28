@@ -96,7 +96,6 @@
     <ClInclude Include="src\ESP32ARES_acceleration\Quaternion.h" />
     <ClInclude Include="src\ESP32ARES_acceleration\Vector2.h" />
     <ClInclude Include="src\ESP32ARES_acceleration\Vector3.h" />
-    <ClInclude Include="src\SensorData.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\ESP32ARES_acceleration\KalmanFilter.cpp" />
@@ -106,6 +105,7 @@
     <ClCompile Include="src\ESP32ARES_acceleration\Setup.cpp" />
     <ClCompile Include="src\ESP32ARES_acceleration\Vector2.cpp" />
     <ClCompile Include="src\ESP32ARES_acceleration\Vector3.cpp" />
+    <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

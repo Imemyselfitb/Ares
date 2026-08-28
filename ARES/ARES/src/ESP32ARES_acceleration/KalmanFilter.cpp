@@ -52,15 +52,26 @@ void KalmanFilter::CalibrateIMURotationalOffset(const Vector3 &AverageAccelUpIMU
 	CurrentState.BiasMeanAccel = (accBias1 + accBias2) * 0.5f;
 	CurrentState.BiasDeltaAccel = accBias1 - accBias2;
 
+	CurrentState.BiasMeanAccel.Print();
+	OUTPUT_TEXT_ARES("\n");
+	CurrentState.BiasDeltaAccel.Print();
+	OUTPUT_TEXT_ARES("\n");
+
 	Vector3 upIMU1 = (AverageAccelUpIMU1 - AverageAccelDownIMU1) * 0.5f;
 	Vector3 upIMU2 = (AverageAccelUpIMU2 - AverageAccelDownIMU2) * 0.5f;
-	m_SensorAlignmentIMU1 = Quaternion{ upIMU1, Vector3{ 0.0f, upIMU1.mag(), 0.0f } };
-	m_SensorAlignmentIMU2 = Quaternion{ upIMU2, Vector3{ 0.0f, upIMU2.mag(), 0.0f } };
+	m_SensorAlignmentIMU1 = Quaternion{ upIMU1.normalised(), Vector3{ 0.0f, 1.0f, 0.0f } };
+	m_SensorAlignmentIMU2 = Quaternion{ upIMU2.normalised(), Vector3{ 0.0f, 1.0f, 0.0f } };
 
-	OUTPUT_TEXT_ARES("Sensors Alignment - S1: ");
-	m_SensorAlignmentIMU1.rotateVector(Vector3(0.0f, 1.0f, 0.0f)).Print();
+	OUTPUT_TEXT_ARES("Sensors Alignment (Sensor -> World) - S1: ");
+	m_SensorAlignmentIMU1.rotateVector(upIMU1).Print();
 	OUTPUT_TEXT_ARES(" and S2: ");
-	m_SensorAlignmentIMU2.rotateVector(Vector3(0.0f, 1.0f, 0.0f)).Print();
+	m_SensorAlignmentIMU2.rotateVector(upIMU2).Print();
+	OUTPUT_TEXT_ARES("\n");
+
+	OUTPUT_TEXT_ARES("Inv. Sensors Alignment (World -> Sensor) Difference - S1: ");
+	(upIMU1 - m_SensorAlignmentIMU1.inverse().rotateVector(Vector3(0.0f, upIMU1.mag(), 0.0f))).Print();
+	OUTPUT_TEXT_ARES(" and S2: ");
+	(upIMU2 - m_SensorAlignmentIMU2.inverse().rotateVector(Vector3(0.0f, upIMU2.mag(), 0.0f))).Print();
 	OUTPUT_TEXT_ARES("\n");
 
 	m_SensorAlignmentIMU1.toRotationMatrix(m_SensorAlignmentIMU1Mat);
@@ -82,7 +93,7 @@ void KalmanFilter::CalibrateInitialState(const Vector3& AverageCorrectedAccelIMU
 	CurrentState.Velocity *= 0.0f;
 
 	Vector3 accelBody = AverageCorrectedAccelIMU1 * m_IMU1Weight + AverageCorrectedAccelIMU2 * (1.0f - m_IMU1Weight);
-	CurrentState.Orientation = Quaternion{ accelBody, Vector3{ 0.0f, accelBody.mag(), 0.0f } };
+	CurrentState.Orientation = Quaternion{ accelBody.normalised(), Vector3{ 0.0f, 1.0f, 0.0f } };
 }
 
 void KalmanFilter::Predict(float delta)
@@ -144,7 +155,7 @@ void KalmanFilter::predictJacobian(float delta)
 		for (uint8_t j = 0; j < 3; j++)
 		{
 			float rotatedAlignment1 = rotationMatRow.dot(Vector3{ m_SensorAlignmentIMU1Mat[j], m_SensorAlignmentIMU1Mat[3 + j], m_SensorAlignmentIMU1Mat[6 + j] }) * m_IMU1Weight;
-			float rotatedAlignment2 = rotationMatRow.dot(Vector3{ m_SensorAlignmentIMU2Mat[j], m_SensorAlignmentIMU2Mat[3 + j], m_SensorAlignmentIMU2Mat[6 + j] }) * (1.0 - m_IMU1Weight);
+			float rotatedAlignment2 = rotationMatRow.dot(Vector3{ m_SensorAlignmentIMU2Mat[j], m_SensorAlignmentIMU2Mat[3 + j], m_SensorAlignmentIMU2Mat[6 + j] }) * (1.0f - m_IMU1Weight);
 			m_JacobianPredict(3 + i, 9 + j) = delta * -(rotatedAlignment1 + rotatedAlignment2);
 			m_JacobianPredict(3 + i, 15 + j) = delta * 0.5f * (rotatedAlignment2 - rotatedAlignment1);
 		}
@@ -160,7 +171,7 @@ void KalmanFilter::predictJacobian(float delta)
 	for(uint8_t i = 0; i < 3; i++)
 	{
 		Vector3 alignmentWeighted1 = *(Vector3*)&m_SensorAlignmentIMU1Mat[i * 3] * m_IMU1Weight;
-		Vector3 alignmentWeighted2 = *(Vector3*)&m_SensorAlignmentIMU2Mat[i * 3] * (1.0f - m_IMU1Weight));
+		Vector3 alignmentWeighted2 = *(Vector3*)&m_SensorAlignmentIMU2Mat[i * 3] * (1.0f - m_IMU1Weight);
 		m_JacobianPredict(6+i, 12) = delta * -(alignmentWeighted1.x + alignmentWeighted2.x);
 		m_JacobianPredict(6+i, 13) = delta * -(alignmentWeighted1.y + alignmentWeighted2.y);
 		m_JacobianPredict(6+i, 14) = delta * -(alignmentWeighted1.z + alignmentWeighted2.z);
@@ -213,13 +224,13 @@ void KalmanFilter::UpdateBarom()
 {
 	float predictedBarom = CurrentState.Position.y;
 	float diff = SensorReadings.Barom - predictedBarom;
-	
+
 	// Since only one reading is provided, the matrices can simplified and calculated manually
 	float scale = 1.0f / (m_ErrorCovariance.data[NUM_STATES + 1] + SensorNoiseBarom);
 	for (uint8_t i = 0; i < NUM_STATES; i++)
 	{
 		float kalman = m_ErrorCovariance.data[i * NUM_STATES + 1] * scale;
-		m_StateInnovation.data[i] = kalman; // StateInnovation currently is kalman gain (until multiplied by diff)
+		m_StateInnovation.data[i] = kalman; // StateInnovation currently stores KalmanGain (until multiplied by diff) - [[Optimization]]
 		m_CovarianceCorrectionBarom.data[i * NUM_STATES + 1] = -kalman;
 	}
 	
@@ -234,7 +245,7 @@ void KalmanFilter::UpdateBarom()
 	m_ScratchMatrix1 *= SensorNoiseBarom;
 	m_ErrorCovariance += m_ScratchMatrix1;
 
-	m_StateInnovation *= diff;
+	m_StateInnovation *= diff; // StateInnovation no longer stores KalmanGain
 	updateState();
 }
 
@@ -324,9 +335,6 @@ void KalmanFilter::updateCovariance(Matrix& updateJacobian, Matrix& sensorNoise)
 	// [NOW USES CHOLESKY SOLVING!!!!]: kalmanGain = jacobian.dot(stateCovariance).solve(measurementCovariance.cholesky()).transposed()
 	bool success = m_MeasurementCovariance.CholeskyDecompose();
 	m_KalmanGain.SolveCholesky(m_MeasurementCovariance);
-
-	// OUTPUT_FLOAT_ARES(m_MeasurementCovariance(0,0), 3);
-
 	m_KalmanGain.Transpose();
 
 	// stateInnovation = kalmanGain.dot(dif)

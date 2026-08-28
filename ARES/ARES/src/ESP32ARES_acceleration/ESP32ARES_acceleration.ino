@@ -4,6 +4,8 @@
 #include "SaveData.h"
 #include "PID.h"
 
+#include <tusb.h>
+
 // Onboard WS2812 RGB Parameter
 #define RGB_LED_PIN 38  // WS2812 LED Pin for N8R8
 
@@ -20,15 +22,17 @@ CalibrationStage currentCalibrationStage = CalibrationStage::SETUP;
 
 unsigned long lastMicros = 0;  // Shared clock for dt tracking
 
-FileSerialiser FS{ "/SaveData.rckt" };
+FileSerialiser FS;
 SaveDataBuffer dataBuffer;
+
+bool isInFlightMode = false;
 
 void OUTPUT_TEXT_ARES(const char* txt) {
   Serial.print(txt);
 }
 
 void OUTPUT_FLOAT_ARES(float num, uint8_t dp) {
-  Serial.println(num, dp);
+  Serial.print(num, dp);
 }
 
 void setup() {
@@ -40,6 +44,8 @@ void setup() {
     delay(10);
 
   Serial.println(F(" --- DIRECT AVIONICS MULTI-SENSOR ENGINE --- "));
+
+  isInFlightMode = tud_mounted();
 
   // Initialize I2C bus channels
   Serial.println(F("Booting Bosch BMI088... "));
@@ -60,19 +66,25 @@ void setup() {
     Serial.println(statusCodeTDK);
   }
 
-  FS.Init();
-  dataBuffer.Data[0].CurrentState = KF.CurrentState;
-  dataBuffer.Data[0].ProcessInputs = KF.ProcessInputs;
-  dataBuffer.Data[0].SensorReadings = KF.SensorReadings;
-  dataBuffer.Data[0].PIDState.Target = Vector3{ 0.0f, 2.0f, 0.0f };
-  dataBuffer.Data[0].PIDState.TargetOffset = Vector3{ 0.0f, 1.0f, 0.0f };
-  dataBuffer.Data[0].PIDState.TargetHeading = Vector3{ 0.0f, 1.0f, 0.0f };
-  dataBuffer.Data[0].PIDState.ServoOrientation = Vector2{ 0.0f, 0.0f };
-  dataBuffer.Data[0].PIDState.Thrust = 10.0f;
-  FS.Submit(dataBuffer);
-  FS.Close();
+  // FS.Init();
+  // dataBuffer.Data[0].CurrentState = KF.CurrentState;
+  // dataBuffer.Data[0].ProcessInputs = KF.ProcessInputs;
+  // dataBuffer.Data[0].SensorReadings = KF.SensorReadings;
+  // dataBuffer.Data[0].PIDState.Target = Vector3{ 0.0f, 2.0f, 0.0f };
+  // dataBuffer.Data[0].PIDState.TargetOffset = Vector3{ 0.0f, 1.0f, 0.0f };
+  // dataBuffer.Data[0].PIDState.TargetHeading = Vector3{ 0.0f, 1.0f, 0.0f };
+  // dataBuffer.Data[0].PIDState.ServoOrientation = Vector2{ 0.0f, 0.0f };
+  // dataBuffer.Data[0].PIDState.Thrust = 10.0f;
+  // FS.Submit(dataBuffer);
+  // FS.Close();
 
-  FS.OutAll();
+  // FS.OutAll();
+
+  FS.Init(!isInFlightMode);
+  if (isInFlightMode)
+  {
+    FS.Close(!isInFlightMode);
+  }
 
   currentCalibrationStage = CalibrationStage::CALIBRATE_IMU_UP;
   lastMicros = micros();  // Establish system reference frame clock

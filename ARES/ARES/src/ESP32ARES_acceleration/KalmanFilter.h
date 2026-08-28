@@ -33,11 +33,11 @@ struct KalmanFilterProcessInputs
 
 struct KalmanFilterSensorReadings
 {
-	float Barom;
 	Vector3 GPS;
 	Vector3 Mag;
 	Vector3 DeltaAccel;
 	Vector3 DeltaGyro;
+	float Barom;
 };
 
 class KalmanFilter
@@ -63,16 +63,16 @@ public:
 	static const uint8_t NUM_SENSORS = 12 + (uint8_t)BAROMETER_ENABLED;
 
 public:
-	float SensorNoiseBarom;
+	KalmanFilterState CurrentState{};
+	KalmanFilterProcessInputs ProcessInputs{};
+	KalmanFilterSensorReadings SensorReadings{};
+
+public:
 	Vector3 SensorNoiseGPS;
 	Vector3 SensorNoiseMag;
 	Vector3 SensorNoiseDeltaGyro;
 	Vector3 SensorNoiseDeltaAccel;
-
-public:
-	KalmanFilterState CurrentState{};
-	KalmanFilterProcessInputs ProcessInputs{};
-	KalmanFilterSensorReadings SensorReadings{};
+	float SensorNoiseBarom;
 
 private:
 	void initSensorNoise();
@@ -86,7 +86,7 @@ private:
 	void updateCovariance(Matrix& updateJacobian, Matrix& sensorNoise);
 
 private:
-	float m_IMU1Weight = 0.35f;
+	const float m_IMU1Weight = 0.35f;
 	Vector3 m_Accel{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_AngVel{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_MagFieldWorld{ 0.0f, sinf(3.1415f * 0.333f), cosf(3.1415f * 0.333f) };

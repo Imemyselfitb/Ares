@@ -13,13 +13,13 @@
 extern void OUTPUT_TEXT_ARES(const char* txt);
 extern void OUTPUT_FLOAT_ARES(float num, uint8_t dp);
 
-struct __attribute__((packed)) SaveData
+struct __attribute__((__packed__)) SaveData
 {
-	float TimeStamp;
 	KalmanFilterState CurrentState;
 	KalmanFilterSensorReadings SensorReadings;
 	KalmanFilterProcessInputs ProcessInputs;
-	PID_State PIDState;
+	PIDState PID;
+	uint32_t TimeStamp;
 };
 
 struct SaveDataBuffer
@@ -34,18 +34,17 @@ struct SaveDataBuffer
 class FileSerialiser
 {
 public:
-	FileSerialiser(const char* filename)
-		: m_Filename(filename) {}
+	FileSerialiser() {}
 
 public:
-	bool Init();
-	void Close() { m_File.close(); }
+	bool Init(bool usbActive);
+	void Close(bool usbActive) { m_File.close(); }
 
 	// Submit data to be appended to logs
 	void Submit(const SaveDataBuffer& m_SaveDataBuffer);
 
 	// Output all content to serial 
-	void OutAll();
+	// void OutAll();
 
 private:
 	const char* m_Filename;

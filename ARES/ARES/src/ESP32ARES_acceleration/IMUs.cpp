@@ -1,7 +1,7 @@
 #include "Sensors.h"
 
-#define I2C_SDA 4
-#define I2C_SCL 5
+#include <Wire.h>
+#include <ICM45686.h> // TDK Balanced-Gyro Driver
 
 // Hardware Addresses 
 #define BMI088_ACCEL_ADDR 0x18
@@ -24,9 +24,13 @@ static void writeReg(uint8_t dev, uint8_t reg, uint8_t val)
 
 int IMUs::BootBMI()
 {
-    Wire.begin(I2C_SDA, I2C_SCL);
-    Wire.setClock(100000); // 100kHz for noise immunity
-    delay(400);
+    if (!g_IsWireInitialised)
+    {
+        Wire.begin(I2C_SDA, I2C_SCL);
+        Wire.setClock(100000); // 100kHz for noise immunity
+        delay(400);
+        g_IsWireInitialised = true;
+    }
 
     writeReg(BMI088_ACCEL_ADDR, 0x7E, 0xB6); // Step A: Soft-reset the sensor to clear error states
     delay(50);                               // Mandatory delay after soft-reset

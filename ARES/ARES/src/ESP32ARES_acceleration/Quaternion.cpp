@@ -5,7 +5,7 @@ Quaternion::Quaternion(const Vector3& from, const Vector3& to)
 {
 	w = 1.0f + from.dot(to);
 
-	Vector3 cross = from.cross(to);
+	const Vector3 cross = from.cross(to);
 	x = cross.x;
 	y = cross.y;
 	z = cross.z;
@@ -17,6 +17,8 @@ Quaternion::Quaternion(const Vector3& from, const Vector3& to)
 		y = 0.0f;
 		z = 0.0f;
 	}
+
+	normalise();
 }
 
 /****************************** CONST FUNCTIONS ******************************/
@@ -30,7 +32,7 @@ float Quaternion::mag() const
 }
 Quaternion Quaternion::normalised() const
 {
-	float magnitude = mag();
+	const float magnitude = mag();
 	if (magnitude == 0.0)
 		return Quaternion{ 1.0, 0.0, 0.0, 0.0 };
 
@@ -42,7 +44,7 @@ Quaternion Quaternion::conjugate() const
 }
 Quaternion Quaternion::inverse() const
 {
-	float magnitudeSq = magSq();
+	const float magnitudeSq = magSq();
 	if (magnitudeSq == 0.0f)
 		return Quaternion{ 1.0f, 0.0f, 0.0f, 0.0f };
 
@@ -56,7 +58,7 @@ Vector3 Quaternion::getVector() const
 
 Vector3 Quaternion::rotateVector(const Vector3& point) const
 {
-	Quaternion projectedPoint = (*this) * Quaternion{ point } * conjugate();
+	const Quaternion projectedPoint = (*this) * Quaternion{ point } * conjugate();
 	return projectedPoint.getVector();
 }
 
@@ -97,6 +99,20 @@ void Quaternion::PrintRaw() const
 	OUTPUT_FLOAT_ARES(y, 3);
 	OUTPUT_TEXT_ARES(", ");
 	OUTPUT_FLOAT_ARES(z, 3);
+}
+
+/**************************** NON-CONST FUNCTIONS ****************************/
+void Quaternion::normalise()
+{
+	const float magnitude = mag();
+	if (magnitude == 0.0)
+		return;
+
+	const float invMag = 1.0f / magnitude;
+	w *= invMag;
+	x *= invMag;
+	y *= invMag;
+	z *= invMag;
 }
 
 /****************************** CONST OPERATORS ******************************/

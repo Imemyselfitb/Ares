@@ -4,14 +4,14 @@
 #include "Vector3.h"
 #include "Quaternion.h"
 
-struct PID_Gain
+struct PIDGain
 {
 	float Kp;
 	float Ki;
 	float Kd;
 };
 
-struct PID_State
+struct PIDState
 {
 	Vector3 Target;
 	Vector3 TargetOffset;
@@ -31,9 +31,9 @@ public:
 	float throttleThrust(float delta, float yTargetOffset, float yVelocity);
 
 private:
-	PID_Gain m_PositionPID{ 1.2f, 0.4f, 9.5f };
-	PID_Gain m_OrientationPID{ 0.65f, 0.25f, 0.8f };
-	PID_Gain m_ThrusterPID{ 1.0f, 0.1f, 1.8f };
+	PIDGain m_PositionPID{ 1.2f, 0.4f, 9.5f };
+	PIDGain m_OrientationPID{ 0.65f, 0.25f, 0.8f };
+	PIDGain m_ThrusterPID{ 1.0f, 0.1f, 1.8f };
 
 private:
 	Vector2 m_SumErrorOrientation{};

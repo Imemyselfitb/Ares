@@ -42,6 +42,9 @@ public:
 	void PrintRaw() const;
 
 public:
+	void normalise();
+
+public:
 	Quaternion operator+(const Quaternion& other) const;
 	Quaternion operator-(const Quaternion& other) const;
 	Quaternion operator*(float scalar) const;

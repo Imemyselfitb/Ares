@@ -3,6 +3,8 @@
 #include <cstring>
 #include <cmath>
 
+#include <utility>
+
 #define _ASSERT(x)
 
 Matrix::Matrix(uint8_t rows, uint8_t cols)
@@ -10,6 +12,13 @@ Matrix::Matrix(uint8_t rows, uint8_t cols)
 {
 	data = new float[rows * cols];
 	memset(data, 0, rows * cols * sizeof(float));
+	m_IsDataOnHeap = true;
+}
+
+Matrix::~Matrix()
+{
+	if (m_IsDataOnHeap)
+		delete[] data;
 }
 
 Matrix Matrix::Identity(uint8_t size)
@@ -33,7 +42,7 @@ Matrix Matrix::Diagonal(uint8_t size, const float* diagonalValues)
 void Matrix::Transpose()
 {
 	std::swap(rows, cols);
-	isTransposed = !isTransposed;
+	m_IsTransposed = !m_IsTransposed;
 }
 
 Matrix Matrix::Transposed() const
@@ -46,10 +55,10 @@ Matrix Matrix::Transposed() const
 void Matrix::AssignDotProduct(const Matrix& matA, const Matrix& matB)
 {
 	_ASSERT(matA.cols == matB.rows);
-	_ASSERT((!isTransposed && rows == matA.rows && cols == matB.cols) ||
-		(isTransposed && cols == matA.rows && rows == matB.cols));
+	_ASSERT((!m_IsTransposed && rows == matA.rows && cols == matB.cols) ||
+		(m_IsTransposed && cols == matA.rows && rows == matB.cols));
 
-	isTransposed = false;
+	m_IsTransposed = false;
 	rows = matA.rows;
 	cols = matB.cols;
 	for (uint8_t x = 0; x < rows; x++)
@@ -69,7 +78,7 @@ void Matrix::operator+=(const Matrix& other)
 {
 	_ASSERT(rows == other.rows && cols == other.cols);
 
-	if (!(isTransposed ^ other.isTransposed))
+	if (!(m_IsTransposed ^ other.m_IsTransposed))
 	{
 		for (uint16_t i = 0; i < rows * cols; i++)
 			data[i] += other.data[i];
@@ -86,7 +95,7 @@ void Matrix::operator-=(const Matrix& other)
 {
 	_ASSERT(rows == other.rows && cols == other.cols);
 
-	if (!(isTransposed ^ other.isTransposed))
+	if (!(m_IsTransposed ^ other.m_IsTransposed))
 	{
 		for (uint16_t i = 0; i < rows * cols; i++)
 			data[i] -= other.data[i];
@@ -114,7 +123,7 @@ bool Matrix::CholeskyDecompose()
 {
 	_ASSERT(rows == cols);
 
-	if (isTransposed)
+	if (m_IsTransposed)
 		Transpose();
 
 	for (uint8_t i = 0; i < rows; i++)

@@ -11,6 +11,7 @@ public:
 	Matrix(uint8_t rows, uint8_t cols);
 	Matrix(uint8_t rows, uint8_t cols, float* data)
 		: rows(rows), cols(cols), data(data) {}
+	~Matrix();
 
 public:
 	static Matrix Identity(uint8_t size);
@@ -28,10 +29,10 @@ public:
 
 public:
 	inline constexpr float& operator()(uint8_t row, uint8_t col) {
-		return data[(!isTransposed) ? (row * cols + col) : (col * rows + row)];
+		return data[(!m_IsTransposed) ? (row * cols + col) : (col * rows + row)];
 	}
 	inline constexpr const float& operator()(uint8_t row, uint8_t col) const {
-		return data[(!isTransposed) ? (row * cols + col) : (col * rows + row)];
+		return data[(!m_IsTransposed) ? (row * cols + col) : (col * rows + row)];
 	}
 
 	void operator+=(const Matrix& other);
@@ -45,5 +46,6 @@ public:
 	float* data = nullptr;
 
 private:
-	bool isTransposed = false;
+	bool m_IsDataOnHeap = false;
+	bool m_IsTransposed = false;
 };
