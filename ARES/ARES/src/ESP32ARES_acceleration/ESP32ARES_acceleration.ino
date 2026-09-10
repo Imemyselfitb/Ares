@@ -13,8 +13,7 @@ KalmanFilter KF;
 
 enum class CalibrationStage {
   SETUP = 0,
-  CALIBRATE_IMU_UP,
-  CALIBRATE_IMU_DOWN,
+  CALIBRATE_IMU_ALIGNMENT,
   CALIBRATE_STATE,
   READY
 };
@@ -66,6 +65,13 @@ void setup() {
     Serial.println(statusCodeTDK);
   }
 
+  Serial.println(F("Booting BMM350... "));
+  bool successfulBMM = Magnetometer::Init();
+  if (successfulBMM)
+    Serial.println(F("SUCCESS: BMM350 initialised!"));
+  else
+    Serial.println("FAILED.");
+
   // FS.Init();
   // dataBuffer.Data[0].CurrentState = KF.CurrentState;
   // dataBuffer.Data[0].ProcessInputs = KF.ProcessInputs;
@@ -86,13 +92,13 @@ void setup() {
     FS.Close(!isInFlightMode);
   }
 
-  currentCalibrationStage = CalibrationStage::CALIBRATE_IMU_UP;
+  currentCalibrationStage = CalibrationStage::CALIBRATE_IMU_ALIGNMENT;
   lastMicros = micros();  // Establish system reference frame clock
+  Serial.println(F("Keep Rocket Still: Starting Calibration in 10s..."));
 }
 
 uint16_t imuAvgFrame = 0;
 Vector3 averageAcc1, averageAcc2;
-Vector3 averageUpAcc1, averageUpAcc2;
 void AverageReadingsIMU() {
   float scaleOld = (float)imuAvgFrame / (float)(imuAvgFrame + 1);
   float scaleNew = 1.0f - scaleOld;
@@ -103,7 +109,7 @@ void AverageReadingsIMU() {
   imuAvgFrame += 1;
 }
 
-void CalibrateUpIMU() {
+void CalibrateAlignmentIMU() {
   // Assuming 300Hz, spend 5s = ~1500frames
   if (imuAvgFrame < 1500) {
     if (imuAvgFrame == 0) {
@@ -117,29 +123,8 @@ void CalibrateUpIMU() {
     return;
   }
 
-  averageUpAcc1 = averageAcc1;
-  averageUpAcc2 = averageAcc2;
-  Serial.println(F("SUCCESS: IMU Average Up Acceleration Measured"));
-  Serial.println(F("Flip Rocket 180* within 10s"));
-  currentCalibrationStage = CalibrationStage::CALIBRATE_IMU_DOWN;
-  imuAvgFrame = 0;
-}
-
-void CalibrateDownIMU() {
-  // Assuming 300Hz, spend 5s = ~1500frames
-  if (imuAvgFrame < 1500) {
-    if (imuAvgFrame == 0) {
-      averageAcc1 *= 0.0f;
-      averageAcc2 *= 0.0f;
-      Serial.println(F("Averaging IMUs Down Acceleration... [Ensure Rocket is flipped 180*]"));
-    }
-
-    AverageReadingsIMU();
-    return;
-  }
-
-  KF.CalibrateIMURotationalOffset(averageUpAcc1, averageAcc1, averageUpAcc2, averageAcc2);
-  Serial.println(F("SUCCESS: IMU Rotational Offset Calibrated"));
+  KF.CalibrateIMUAlignment(averageAcc1, averageAcc2);
+  Serial.println(F("SUCCESS: IMU Alignment Complete"));
   currentCalibrationStage = CalibrationStage::CALIBRATE_STATE;
   imuAvgFrame = 0;
 }
@@ -166,6 +151,8 @@ bool CalibrateState() {
 }
 
 void loop() {
+  delay(3);
+
   unsigned long currentMicros = micros();
   float dt = (float)(currentMicros - lastMicros) / 1000000.0f;
   lastMicros = currentMicros;
@@ -179,15 +166,10 @@ void loop() {
 
   Vector3 tdkGyroCopy = KF.ProcessInputs.Gyro2;
 
-  if (currentCalibrationStage == CalibrationStage::CALIBRATE_IMU_UP) {
-    CalibrateUpIMU();
-    return;
-  }
-
   static float accDelta = 0.0f;
-  if (currentCalibrationStage == CalibrationStage::CALIBRATE_IMU_DOWN) {
+  if (currentCalibrationStage == CalibrationStage::CALIBRATE_IMU_ALIGNMENT) {
     if (imuAvgFrame > 0 || accDelta > 10.0f)
-      CalibrateDownIMU();
+      CalibrateAlignmentIMU();
 
     accDelta += dt;
     return;
@@ -284,8 +266,17 @@ void loop() {
     Serial.print(F(", "));
     Serial.print(KF.ProcessInputs.Accel2.z, 3);
 
+    Vector3 mag;
+    if (Magnetometer::GetReading(mag))
+    {
+      Serial.print(F("  |  MAGNET: [X,Y,Z]: "));
+      mag.Print();
+    }
+    else
+    {
+      Serial.print(F("  |  MAGNET FAILED READING!"));
+    }
+
     Serial.println();
   }
-
-  delay(3);
 }

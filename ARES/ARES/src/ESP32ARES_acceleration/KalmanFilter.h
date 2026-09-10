@@ -47,7 +47,7 @@ public:
 
 	// NOTE: Only to be called ONCE after each time IMU readings are recieved
 	void CorrectIMUReadings();
-	void CalibrateIMURotationalOffset(const Vector3& AverageAccelUpIMU1, const Vector3& AverageAccelDownIMU1, const Vector3& AverageAccelUpIMU2, const Vector3& AverageAccelDownIMU2);
+	void CalibrateIMUAlignment(const Vector3& AverageAccelIMU1, const Vector3& AverageAccelUpIMU2);
 	void CalibrateInitialState(const Vector3& AverageCorrectedAccelIMU1, const Vector3& AverageCorrectedAccelIMU2);
 
 	void Predict(float delta);
@@ -90,7 +90,7 @@ private:
 	Vector3 m_Accel{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_AngVel{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_MagFieldWorld{ 0.0f, sinf(3.1415f * 0.333f), cosf(3.1415f * 0.333f) };
-	Quaternion m_SensorAlignmentIMU1;
+	Quaternion m_SensorAlignmentIMU1{ 1.0, 0.0, 0.0, 0.0 }; // NOTE: Always assumed to be perfectly aligned with the rocket
 	Quaternion m_SensorAlignmentIMU2;
 	float m_SensorAlignmentIMU1Mat[9];
 	float m_SensorAlignmentIMU2Mat[9];

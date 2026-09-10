@@ -45,43 +45,18 @@ void KalmanFilter::initUpdateJacobians()
 	m_JacobianUpdateDeltaGyro(2, 20) = -1.0f;
 }
 
-void KalmanFilter::CalibrateIMURotationalOffset(const Vector3 &AverageAccelUpIMU1, const Vector3 &AverageAccelDownIMU1, const Vector3 &AverageAccelUpIMU2, const Vector3 &AverageAccelDownIMU2)
+void KalmanFilter::CalibrateIMUAlignment(const Vector3 &AverageAccelIMU1, const Vector3 &AverageAccelIMU2)
 {
-	Vector3 accBias1 = (AverageAccelUpIMU1 + AverageAccelDownIMU1) * 0.5f;
-	Vector3 accBias2 = (AverageAccelUpIMU2 + AverageAccelDownIMU2) * 0.5f;
-	CurrentState.BiasMeanAccel = (accBias1 + accBias2) * 0.5f;
-	CurrentState.BiasDeltaAccel = accBias1 - accBias2;
-
-	CurrentState.BiasMeanAccel.Print();
-	OUTPUT_TEXT_ARES("\n");
-	CurrentState.BiasDeltaAccel.Print();
-	OUTPUT_TEXT_ARES("\n");
-
-	Vector3 upIMU1 = (AverageAccelUpIMU1 - AverageAccelDownIMU1) * 0.5f;
-	Vector3 upIMU2 = (AverageAccelUpIMU2 - AverageAccelDownIMU2) * 0.5f;
-	m_SensorAlignmentIMU1 = Quaternion{ upIMU1.normalised(), Vector3{ 0.0f, 1.0f, 0.0f } };
-	m_SensorAlignmentIMU2 = Quaternion{ upIMU2.normalised(), Vector3{ 0.0f, 1.0f, 0.0f } };
-
-	OUTPUT_TEXT_ARES("Sensors Alignment (Sensor -> World) - S1: ");
-	m_SensorAlignmentIMU1.rotateVector(upIMU1).Print();
-	OUTPUT_TEXT_ARES(" and S2: ");
-	m_SensorAlignmentIMU2.rotateVector(upIMU2).Print();
-	OUTPUT_TEXT_ARES("\n");
-
-	OUTPUT_TEXT_ARES("Inv. Sensors Alignment (World -> Sensor) Difference - S1: ");
-	(upIMU1 - m_SensorAlignmentIMU1.inverse().rotateVector(Vector3(0.0f, upIMU1.mag(), 0.0f))).Print();
-	OUTPUT_TEXT_ARES(" and S2: ");
-	(upIMU2 - m_SensorAlignmentIMU2.inverse().rotateVector(Vector3(0.0f, upIMU2.mag(), 0.0f))).Print();
-	OUTPUT_TEXT_ARES("\n");
-
+	m_SensorAlignmentIMU1 = Quaternion{ 1.0, 0.0, 0.0, 0.0 };
+	m_SensorAlignmentIMU2 = Quaternion{ AverageAccelIMU2.normalised(), AverageAccelIMU1.normalised() };
 	m_SensorAlignmentIMU1.toRotationMatrix(m_SensorAlignmentIMU1Mat);
 	m_SensorAlignmentIMU2.toRotationMatrix(m_SensorAlignmentIMU2Mat);
 }
 
 void KalmanFilter::CorrectIMUReadings()
 {
-	ProcessInputs.Accel1 = m_SensorAlignmentIMU1.rotateVector(ProcessInputs.Accel1 - (CurrentState.BiasMeanAccel + CurrentState.BiasDeltaAccel * 0.5f));
-	ProcessInputs.Gyro1 = m_SensorAlignmentIMU1.rotateVector(ProcessInputs.Gyro1 - (CurrentState.BiasMeanGyro + CurrentState.BiasDeltaGyro * 0.5f));
+	ProcessInputs.Accel1 = ProcessInputs.Accel1 - (CurrentState.BiasMeanAccel + CurrentState.BiasDeltaAccel * 0.5f);
+	ProcessInputs.Gyro1 = ProcessInputs.Gyro1 - (CurrentState.BiasMeanGyro + CurrentState.BiasDeltaGyro * 0.5f);
 	ProcessInputs.Accel2 = m_SensorAlignmentIMU2.rotateVector(ProcessInputs.Accel2 - (CurrentState.BiasMeanAccel - CurrentState.BiasDeltaAccel * 0.5f));
 	ProcessInputs.Gyro2 = m_SensorAlignmentIMU2.rotateVector(ProcessInputs.Gyro2 - (CurrentState.BiasMeanGyro - CurrentState.BiasDeltaGyro * 0.5f));
 }
