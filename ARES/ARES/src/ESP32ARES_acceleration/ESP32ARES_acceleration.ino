@@ -86,11 +86,11 @@ void setup() {
 
   // FS.OutAll();
 
-  FS.Init(!isInFlightMode);
-  if (isInFlightMode)
-  {
-    FS.Close(!isInFlightMode);
-  }
+  // FS.Init(!isInFlightMode);
+  // if (isInFlightMode)
+  // {
+  //   FS.Close(!isInFlightMode);
+  // }
 
   currentCalibrationStage = CalibrationStage::CALIBRATE_IMU_ALIGNMENT;
   lastMicros = micros();  // Establish system reference frame clock
@@ -196,6 +196,14 @@ void loop() {
   KF.UpdateDeltaAccel();
   KF.UpdateDeltaGyro();
 
+  static float accDeltaGPS = 0.0f;
+  if (accDeltaGPS > 0.1f)
+  {
+    accDeltaGPS = 0.0f;
+    KF.SensorReadings.GPS = Vector3(0,0,0);
+    KF.UpdateGPS();
+  }
+
   // THE [OLD] QUATERNION STUFF
 
   static Quaternion tdkOrient;
@@ -225,8 +233,8 @@ void loop() {
   // TELEMETRY OUTPUT ENGINE (Serial Stream)
 
   static float accDeltaLog = 0.0f;
-  accDeltaLog += dt;
-  if (accDeltaLog > 1.000f)  // Output only once every 1000ms (1s)
+  accDeltaLog += dt * 100000.0f;
+  if (accDeltaLog > 0.500f)  // Output only once every 1000ms (1s)
   {
     accDeltaLog = 0.0f;
 
@@ -252,12 +260,19 @@ void loop() {
     Serial.print(F(","));
     Serial.print(KF.CurrentState.Velocity.z, 1);
 
-    Serial.print(F(" | TDK_EULER[R,P,Y]:"));
-    Serial.print(tdkRoll, 1);
-    Serial.print(F(","));
-    Serial.print(tdkPitch, 1);
-    Serial.print(F(","));
-    Serial.print(tdkYaw, 1);
+    // Serial.print(F(" | TDK_EULER[R,P,Y]:"));
+    // Serial.print(tdkRoll, 1);
+    // Serial.print(F(","));
+    // Serial.print(tdkPitch, 1);
+    // Serial.print(F(","));
+    // Serial.print(tdkYaw, 1);
+
+    Serial.print(F("  |  BMI [m/s² X,Y,Z]: "));
+    Serial.print(KF.ProcessInputs.Accel1.x, 3);
+    Serial.print(F(", "));
+    Serial.print(KF.ProcessInputs.Accel1.y, 3);
+    Serial.print(F(", "));
+    Serial.print(KF.ProcessInputs.Accel1.z, 3);
 
     Serial.print(F("  |  TDK [m/s² X,Y,Z]: "));
     Serial.print(KF.ProcessInputs.Accel2.x, 3);

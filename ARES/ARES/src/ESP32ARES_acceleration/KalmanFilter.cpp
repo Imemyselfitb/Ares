@@ -10,11 +10,13 @@ KalmanFilter::KalmanFilter()
 void KalmanFilter::initSensorNoise()
 {
 	SensorNoiseBarom = 1.0f;
-	SensorNoiseGPS = Vector3{ 1.0f, 1.0f, 1.0f };
-	SensorNoiseMag = Vector3{ 0.01f, 0.01f, 0.01f };
+	SensorNoiseGPS = Vector3{ 0.4f, 1.6f, 0.4f };
+	SensorNoiseMag = Vector3{ 3.61f, 20.25f, 3.61f };
 	//BIASES:
-	SensorNoiseDeltaGyro = Vector3{ 0.5f, 0.5f, 0.5f };
-	SensorNoiseDeltaAccel = Vector3{ 0.5f, 0.5f, 0.5f };
+	SensorNoiseDeltaGyro = Vector3{ 0.0006410f, 0.0006410f, 0.0006410f };
+	SensorNoiseDeltaAccel = Vector3{ 0.03461f, 0.03461f, 0.03461f };
+
+	// noise(accel1 - accel2)
 
 	const float processNoise[NUM_STATES] = {
 		0.2f, 0.2f, 0.2f, // Position
@@ -86,11 +88,11 @@ void KalmanFilter::predictState(float delta)
 	Vector3 accelBody = ProcessInputs.Accel1 * m_IMU1Weight + ProcessInputs.Accel2 * (1.0f - m_IMU1Weight);
 	m_Accel = CurrentState.Orientation.rotateVector(accelBody) - Vector3(0.0f, 9.80665f, 0.0f);
 
-	OUTPUT_TEXT_ARES("Accel Body: ");
-	accelBody.Print();
-	OUTPUT_TEXT_ARES("; Accel: ");
-	m_Accel.Print();
-	OUTPUT_TEXT_ARES("\n");
+	// OUTPUT_TEXT_ARES("Accel Body: ");
+	// accelBody.Print();
+	// OUTPUT_TEXT_ARES("; Accel: ");
+	// m_Accel.Print();
+	// OUTPUT_TEXT_ARES("\n");
 
 	// Weight angular velocity (already in body-frame)
 	m_AngVel = ProcessInputs.Gyro1 * m_IMU1Weight + ProcessInputs.Gyro2 * (1.0f - m_IMU1Weight);
