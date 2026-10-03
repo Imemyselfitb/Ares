@@ -17,10 +17,6 @@ struct KalmanFilterState
 	Vector3 Position{};
 	Vector3 Velocity{};
 	Quaternion Orientation{};
-	Vector3 BiasMeanAccel{};
-	Vector3 BiasMeanGyro{};
-	Vector3 BiasDeltaAccel{};
-	Vector3 BiasDeltaGyro{};
 };
 
 struct KalmanFilterProcessInputs
@@ -45,11 +41,6 @@ class KalmanFilter
 public:
 	KalmanFilter();
 
-	// NOTE: Only to be called ONCE after each time IMU readings are recieved
-	void CorrectIMUReadings();
-	void CalibrateIMUAlignment(const Vector3& AverageAccelIMU1, const Vector3& AverageAccelUpIMU2);
-	void CalibrateInitialState(const Vector3& AverageCorrectedAccelIMU1, const Vector3& AverageCorrectedAccelIMU2);
-
 	void Predict(float delta);
 
 	void UpdateGPS();
@@ -59,7 +50,7 @@ public:
 	void UpdateDeltaAccel();
 
 public:
-	static const uint8_t NUM_STATES = 21;
+	static const uint8_t NUM_STATES = 9;
 	static const uint8_t NUM_SENSORS = 12 + (uint8_t)BAROMETER_ENABLED;
 
 public:
@@ -90,10 +81,6 @@ private:
 	Vector3 m_Accel{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_AngVel{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_MagFieldWorld{ 0.0f, sinf(3.1415f * 0.333f), cosf(3.1415f * 0.333f) };
-	Quaternion m_SensorAlignmentIMU1{ 1.0, 0.0, 0.0, 0.0 }; // NOTE: Always assumed to be perfectly aligned with the rocket
-	Quaternion m_SensorAlignmentIMU2;
-	float m_SensorAlignmentIMU1Mat[9];
-	float m_SensorAlignmentIMU2Mat[9];
 
 private:
 	Matrix m_ErrorEstimate{ NUM_STATES, 1 };

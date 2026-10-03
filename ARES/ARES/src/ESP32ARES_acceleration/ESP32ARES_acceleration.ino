@@ -1,4 +1,4 @@
-#include "KalmanFilter.h"
+#include "RocketINS.h"
 #include "Sensors.h"
 
 #include "SaveData.h"
@@ -9,17 +9,12 @@
 // Onboard WS2812 RGB Parameter
 #define RGB_LED_PIN 38  // WS2812 LED Pin for N8R8
 
-KalmanFilter KF;
+const unsigned long LOOP_TIME_US = 5000;
 
-enum class CalibrationStage {
-  SETUP = 0,
-  CALIBRATE_IMU_ALIGNMENT,
-  CALIBRATE_STATE,
-  READY
-};
-CalibrationStage currentCalibrationStage = CalibrationStage::SETUP;
+RocketINS INS;
+bool isLaunched = false;
 
-unsigned long lastMicros = 0;  // Shared clock for dt tracking
+unsigned long lastUpdate = 0;
 
 FileSerialiser FS;
 SaveDataBuffer dataBuffer;
@@ -92,136 +87,44 @@ void setup() {
     FS.Close(!isInFlightMode);
   }
 
-  currentCalibrationStage = CalibrationStage::CALIBRATE_IMU_ALIGNMENT;
-  lastMicros = micros();  // Establish system reference frame clock
+  lastUpdate = micros();  // Establish system reference frame clock
   Serial.println(F("Keep Rocket Still: Starting Calibration in 10s..."));
-}
-
-uint16_t imuAvgFrame = 0;
-Vector3 averageAcc1, averageAcc2;
-void AverageReadingsIMU() {
-  float scaleOld = (float)imuAvgFrame / (float)(imuAvgFrame + 1);
-  float scaleNew = 1.0f - scaleOld;
-
-  averageAcc1 = (averageAcc1 * scaleOld) + (KF.ProcessInputs.Accel1 * scaleNew);
-  averageAcc2 = (averageAcc2 * scaleOld) + (KF.ProcessInputs.Accel2 * scaleNew);
-
-  imuAvgFrame += 1;
-}
-
-void CalibrateAlignmentIMU() {
-  // Assuming 300Hz, spend 5s = ~1500frames
-  if (imuAvgFrame < 1500) {
-    if (imuAvgFrame == 0) {
-      averageAcc1 *= 0.0f;
-      averageAcc2 *= 0.0f;
-      Serial.println(F("Calibrating IMUs Orientation..."));
-      Serial.println(F("Averaging IMUs Up Acceleration... [Ensure Rocket is completely vertical]"));
-    }
-
-    AverageReadingsIMU();
-    return;
-  }
-
-  KF.CalibrateIMUAlignment(averageAcc1, averageAcc2);
-  Serial.println(F("SUCCESS: IMU Alignment Complete"));
-  currentCalibrationStage = CalibrationStage::CALIBRATE_STATE;
-  imuAvgFrame = 0;
-}
-
-bool CalibrateState() {
-  // Assuming 300Hz, spend 5s = ~1500frames
-  if (imuAvgFrame < 1500) {
-    if (imuAvgFrame == 0) {
-      averageAcc1 *= 0.0f;
-      averageAcc2 *= 0.0f;
-      Serial.println(F("Calibrating Kalman Filter State... "));
-    }
-
-    AverageReadingsIMU();
-    return false;
-  }
-
-  KF.CalibrateInitialState(averageAcc1, averageAcc2);
-  Serial.println(F("SUCCESS: Kalman Filter's Initial State Calibrated"));
-
-  currentCalibrationStage = CalibrationStage::READY;
-  imuAvgFrame = 0;
-  return true;
 }
 
 void loop() {
   delay(3);
 
-  unsigned long currentMicros = micros();
-  float dt = (float)(currentMicros - lastMicros) / 1000000.0f;
-  lastMicros = currentMicros;
-  if (dt <= 0.0f || dt > 0.5f)
-    dt = 0.01f;  // Outlier guard filter
-
-  IMUs::GetReadingsBMI(KF.ProcessInputs.Accel1, KF.ProcessInputs.Gyro1);
-  IMUs::GetReadingsTDK(KF.ProcessInputs.Accel2, KF.ProcessInputs.Gyro2);
-  KF.SensorReadings.DeltaAccel = KF.ProcessInputs.Accel1 - KF.ProcessInputs.Accel2;
-  KF.SensorReadings.DeltaGyro = KF.ProcessInputs.Gyro1 - KF.ProcessInputs.Gyro2;
-
-  Vector3 tdkGyroCopy = KF.ProcessInputs.Gyro2;
-
-  static float accDelta = 0.0f;
-  if (currentCalibrationStage == CalibrationStage::CALIBRATE_IMU_ALIGNMENT) {
-    if (imuAvgFrame > 0 || accDelta > 10.0f)
-      CalibrateAlignmentIMU();
-
-    accDelta += dt;
-    return;
-  }
-
-  KF.CorrectIMUReadings();
-
-  if (currentCalibrationStage == CalibrationStage::CALIBRATE_STATE)
-    CalibrateState();
-
-  static float accDeltaCalibrationTest = 0.0f;
-  accDeltaCalibrationTest += dt;
-  if (accDeltaCalibrationTest > 10.0f) {
-    if (imuAvgFrame == 0)
-      Serial.println("Recalibrating State [Every 15 Seconds]...");
-
-    if (CalibrateState()) {
-      accDeltaCalibrationTest = 0.0f;
-      Serial.println("State Recalibrated.");
+  while ((micros() - lastUpdate) < LOOP_TIME_US)
+  {
+    if (Serial.available() > 0)
+    {
+      String cmd = Serial.readStringUntil('\n');
+      cmd.trim();
+      if (cmd.equalsIgnoreCase("launch"))
+      {
+        isLaunched = true;
+        Serial.println(F("[SYSTEM] !!! LAUNCH COMMAND RECORDED. LOCKING POSTURE SIGNATURES !!!"));
+      }
     }
   }
 
-  KF.Predict(dt);
-  KF.UpdateDeltaAccel();
-  KF.UpdateDeltaGyro();
+  unsigned long now = micros();
+  float dt = (float)(now - lastUpdate) / 1000000.0f;
+  lastUpdate = now;
+  if (dt <= 0.0f || dt > 0.5f)
+    dt = 0.01f;  // Outlier guard filter
 
-  // THE [OLD] QUATERNION STUFF
-
-  static Quaternion tdkOrient;
-
-  float speed = tdkGyroCopy.mag() * dt;
-  if (speed > 0.000001f) {
-    Vector3 axis = tdkGyroCopy.normalised();
-    Quaternion deltaOrientation{ axis * std::sin(speed * 0.5f), std::cos(speed * 0.5f) };
-    tdkOrient = (tdkOrient * deltaOrientation).normalised();
+  IMUs::GetReadingsBMI(INS.AccelBMI, INS.GyroBMI);
+  IMUs::GetReadingsTDK(INS.AccelTDK, INS.GyroTDK);
+  if (!isLaunched)
+  {
+    INS.UpdateGroundPreLaunch();
   }
-
-  float tdkRoll = atan2(2.0f * (tdkOrient.w * tdkOrient.x + tdkOrient.y * tdkOrient.z), 1.0f - 2.0f * (tdkOrient.x * tdkOrient.x + tdkOrient.y * tdkOrient.y)) * (180.0f / PI);
-  float tdkPitch = asin(fmax(-1.0f, fmin(1.0f, 2.0f * (tdkOrient.w * tdkOrient.y - tdkOrient.z * tdkOrient.x)))) * (180.0f / PI);
-  float tdkYaw = atan2(2.0f * (tdkOrient.w * tdkOrient.z + tdkOrient.x * tdkOrient.y), 1.0f - 2.0f * (tdkOrient.y * tdkOrient.y + tdkOrient.z * tdkOrient.z)) * (180.0f / PI);
-
-  // float dT_dQW = 0.5f * (-tdkQX * tdkRadX - tdkQY * tdkRadY - tdkQZ * tdkRadZ) * dt;
-  // float dT_dQX = 0.5f * ( tdkQW * tdkRadX + tdkQY * tdkRadZ - tdkQZ * tdkRadY) * dt;
-  // float dT_dQY = 0.5f * ( tdkQW * tdkRadY - tdkQX * tdkRadZ + tdkQZ * tdkRadX) * dt;
-  // float dT_dQZ = 0.5f * ( tdkQW * tdkRadZ + tdkQX * tdkRadY - tdkQY * tdkRadX) * dt;
-  // tdkQW += dT_dQW; tdkQX += dT_dQX; tdkQY += dT_dQY; tdkQZ += dT_dQZ;
-  // float tdkNorm = sqrt(tdkQW * tdkQW + tdkQX * tdkQX + tdkQY * tdkQY + tdkQZ * tdkQZ);
-  // if (tdkNorm > 0.0f) { tdkQW /= tdkNorm; tdkQX /= tdkNorm; tdkQY /= tdkNorm; tdkQZ /= tdkNorm; }
-  // float tdkRoll  = atan2(2.0f * (tdkQW * tdkQX + tdkQY * tdkQZ), 1.0f - 2.0f * (tdkQX * tdkQX + tdkQY * tdkQY)) * (180.0f / PI);
-  // float tdkPitch = asin(fmax(-1.0f, fmin(1.0f, 2.0f * (tdkQW * tdkQY - tdkQZ * tdkQX)))) * (180.0f / PI);
-  // float tdkYaw   = atan2(2.0f * (tdkQW * tdkQZ + tdkQX * tdkQY), 1.0f - 2.0f * (tdkQY * tdkQY + tdkQZ * tdkQZ)) * (180.0f / PI);
-
+  else
+  {
+    INS.UpdateFlight(dt);
+  }
+  
   // TELEMETRY OUTPUT ENGINE (Serial Stream)
 
   static float accDeltaLog = 0.0f;
@@ -230,41 +133,36 @@ void loop() {
   {
     accDeltaLog = 0.0f;
 
-    Serial.print(F("  POSITION XYZ:"));
-    Serial.print(KF.CurrentState.Position.x, 1);
-    Serial.print(F(","));
-    Serial.print(KF.CurrentState.Position.y, 1);
-    Serial.print(F(","));
-    Serial.print(KF.CurrentState.Position.z, 1);
-
     Serial.print(F("  ORI XYZ:"));
-    Vector3 up = KF.CurrentState.Orientation.rotateVector(Vector3(0.0, 1.0, 0.0));
+    Vector3 up = INS.EKF.CurrentState.Orientation.rotateVector(Vector3(0.0, 1.0, 0.0));
     Serial.print(up.x, 4);
     Serial.print(F(","));
     Serial.print(up.y, 4);
     Serial.print(F(","));
     Serial.print(up.z, 4);
 
-    Serial.print(F("  VELOCITY XYZ:"));
-    Serial.print(KF.CurrentState.Velocity.x, 1);
+    const Vector3& pos = INS.EKF.CurrentState.Position;
+    Serial.print(F("  POSITION XYZ:"));
+    Serial.print(pos.x, 1);
     Serial.print(F(","));
-    Serial.print(KF.CurrentState.Velocity.y, 1);
+    Serial.print(pos.y, 1);
     Serial.print(F(","));
-    Serial.print(KF.CurrentState.Velocity.z, 1);
+    Serial.print(pos.z, 1);
 
-    Serial.print(F(" | TDK_EULER[R,P,Y]:"));
-    Serial.print(tdkRoll, 1);
+    const Vector3& vel = INS.EKF.CurrentState.Velocity;
+    Serial.print(F("  VELOCITY XYZ:"));
+    Serial.print(vel.x, 1);
     Serial.print(F(","));
-    Serial.print(tdkPitch, 1);
+    Serial.print(vel.y, 1);
     Serial.print(F(","));
-    Serial.print(tdkYaw, 1);
+    Serial.print(vel.z, 1);
 
     Serial.print(F("  |  TDK [m/s² X,Y,Z]: "));
-    Serial.print(KF.ProcessInputs.Accel2.x, 3);
+    Serial.print(INS.AccelTDK.x, 3);
     Serial.print(F(", "));
-    Serial.print(KF.ProcessInputs.Accel2.y, 3);
+    Serial.print(INS.AccelTDK.y, 3);
     Serial.print(F(", "));
-    Serial.print(KF.ProcessInputs.Accel2.z, 3);
+    Serial.print(INS.AccelTDK.z, 3);
 
     Vector3 mag;
     if (Magnetometer::GetReading(mag))
