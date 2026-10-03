@@ -149,6 +149,14 @@ void loop() {
     Serial.print(F(","));
     Serial.print(pos.z, 1);
 
+    const Vector3& vel = INS.EKF.CurrentState.Velocity;
+    Serial.print(F("  VELOCITY XYZ:"));
+    Serial.print(vel.x, 1);
+    Serial.print(F(","));
+    Serial.print(vel.y, 1);
+    Serial.print(F(","));
+    Serial.print(vel.z, 1);
+
     Serial.print(F("  |  TDK [m/s² X,Y,Z]: "));
     Serial.print(INS.AccelTDK.x, 3);
     Serial.print(F(", "));
