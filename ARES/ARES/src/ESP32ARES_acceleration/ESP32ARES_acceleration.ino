@@ -81,11 +81,11 @@ void setup() {
 
   // FS.OutAll();
 
-  FS.Init(!isInFlightMode);
-  if (isInFlightMode)
-  {
-    FS.Close(!isInFlightMode);
-  }
+  // FS.Init(!isInFlightMode);
+  // if (isInFlightMode)
+  // {
+  //   FS.Close(!isInFlightMode);
+  // }
 
   lastUpdate = micros();  // Establish system reference frame clock
   Serial.println(F("Keep Rocket Still: Starting Calibration in 10s..."));
@@ -128,8 +128,8 @@ void loop() {
   // TELEMETRY OUTPUT ENGINE (Serial Stream)
 
   static float accDeltaLog = 0.0f;
-  accDeltaLog += dt;
-  if (accDeltaLog > 1.000f)  // Output only once every 1000ms (1s)
+  accDeltaLog += dt * 100000.0f;
+  if (accDeltaLog > 0.500f)  // Output only once every 1000ms (1s)
   {
     accDeltaLog = 0.0f;
 
@@ -148,14 +148,6 @@ void loop() {
     Serial.print(pos.y, 1);
     Serial.print(F(","));
     Serial.print(pos.z, 1);
-
-    const Vector3& vel = INS.EKF.CurrentState.Velocity;
-    Serial.print(F("  VELOCITY XYZ:"));
-    Serial.print(vel.x, 1);
-    Serial.print(F(","));
-    Serial.print(vel.y, 1);
-    Serial.print(F(","));
-    Serial.print(vel.z, 1);
 
     Serial.print(F("  |  TDK [m/s² X,Y,Z]: "));
     Serial.print(INS.AccelTDK.x, 3);
