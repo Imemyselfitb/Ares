@@ -9,26 +9,14 @@ void RocketINS::UpdateGroundPreLaunch()
 
   if (m_CalibrationSamples >= 200)
   {
-    Vector3 averageAccelBMI = m_SumAccelerationBMI * (1.0f / (float)m_CalibrationSamples);
-    Vector3 averageAccelTDK = m_SumAccelerationTDK * (1.0f / (float)m_CalibrationSamples);
+    Vector3 averageAccelBMI = m_SumAccelerationBMI * (1.0f / 200.0f);
+    Vector3 averageAccelTDK = m_SumAccelerationTDK * (1.0f / 200.0f);
     if (averageAccelBMI.magSq() > 0.01f)
     {
       averageAccelBMI.normalise();
-      float dot_g = -averageAccelBMI.z;
-      float cross_x = averageAccelBMI.y;
-      float cross_y = -averageAccelBMI.x;
-      float s_g = sqrtf((1.0f + dot_g) * 2.0f);
-      if (s_g > 0.001f)
-      {
-        Quaternion& orientation = EKF.CurrentState.Orientation;
-        orientation.w = s_g * 0.5f;
-        orientation.x = cross_x / s_g;
-        orientation.y = cross_y / s_g;
-        orientation.z = 0.0f;
-      }
-
+      EKF.CurrentState.Orientation = Quaternion{ averageAccelBMI, Vector3{ 0.0f, 1.0f, 0.0f } };
       if (averageAccelTDK.magSq() > 0.01f)
-        m_SensorAlignmentTDK = Quaternion{ averageAccelTDK.normalised(), averageAccelBMI.normalised() };
+        m_SensorAlignmentTDK = Quaternion{ averageAccelTDK.normalised(), averageAccelBMI };
     }
     
     m_CalibrationSamples = 0;

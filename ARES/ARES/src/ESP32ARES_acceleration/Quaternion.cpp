@@ -12,8 +12,9 @@ Quaternion::Quaternion(const Vector3& from, const Vector3& to)
 
 	if (std::abs(w) < 0.000001f)
 	{
-		w = 1.0f;
-		x = 0.0f;
+		// Completely 180* (picks x-axis as default fallback)
+		w = 0.0f;
+		x = 1.0f;
 		y = 0.0f;
 		z = 0.0f;
 	}

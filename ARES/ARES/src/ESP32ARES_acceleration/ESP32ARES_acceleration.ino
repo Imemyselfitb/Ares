@@ -88,14 +88,12 @@ void setup() {
   // }
 
   lastUpdate = micros();  // Establish system reference frame clock
-  Serial.println(F("Keep Rocket Still: Starting Calibration in 10s..."));
 }
 
 void loop() {
-  delay(3);
-
   while ((micros() - lastUpdate) < LOOP_TIME_US)
   {
+    delay(1);
     if (Serial.available() > 0)
     {
       String cmd = Serial.readStringUntil('\n');
@@ -134,7 +132,7 @@ void loop() {
     accDeltaLog = 0.0f;
 
     Serial.print(F("  ORI XYZ:"));
-    Vector3 up = INS.EKF.CurrentState.Orientation.rotateVector(Vector3(0.0, 1.0, 0.0));
+    Vector3 up = INS.EKF.CurrentState.Orientation.rotateVector(Vector3{ 0.0, 1.0, 0.0 });
     Serial.print(up.x, 4);
     Serial.print(F(","));
     Serial.print(up.y, 4);
